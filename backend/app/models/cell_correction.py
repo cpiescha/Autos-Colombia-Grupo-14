@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -8,6 +8,12 @@ from app.db.base import Base
 
 class CellCorrection(Base):
     __tablename__ = "cell_corrections"
+    __table_args__ = (
+        CheckConstraint(
+            "previous_spot_id <> new_spot_id",
+            name="ck_correction_different_spots",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     parking_stay_id: Mapped[int] = mapped_column(
