@@ -1,68 +1,68 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatListModule } from '@angular/material/list';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-
-interface ItemMenu { ruta: string; texto: string; icono: string; }
-
+ 
+interface ItemMenu { ruta: string; texto: string; }
+ 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatToolbarModule, MatSidenavModule,
-    MatListModule, MatIconModule, MatButtonModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <mat-toolbar class="barra">
-      <button mat-icon-button aria-label="Abrir o cerrar menú" (click)="menuAbierto.set(!menuAbierto())">
-        <mat-icon>menu</mat-icon>
-      </button>
+    <header class="barra">
       <span class="titulo">Autos Colombia</span>
-      <span class="relleno"></span>
-    </mat-toolbar>
-
-    <mat-sidenav-container class="contenedor">
-      <mat-sidenav mode="side" [opened]="menuAbierto()" class="menu">
+    </header>
+ 
+    <div class="cuerpo">
+      <nav class="menu" aria-label="Menú principal">
         <div class="operario">Operario Diurno 1</div>
-        <mat-nav-list>
-          @for (item of items; track item.ruta) {
-            <a mat-list-item [routerLink]="item.ruta" routerLinkActive="activo">
-              <mat-icon matListItemIcon>{{ item.icono }}</mat-icon>
-              <span matListItemTitle>{{ item.texto }}</span>
-            </a>
-          }
-        </mat-nav-list>
-      </mat-sidenav>
-      <mat-sidenav-content class="contenido">
+        @for (item of items; track item.ruta) {
+          <a class="opcion" [routerLink]="item.ruta" routerLinkActive="activo" ariaCurrentWhenActive="page">
+            {{ item.texto }}
+          </a>
+        }
+      </nav>
+ 
+      <main class="contenido">
         <router-outlet />
-      </mat-sidenav-content>
-    </mat-sidenav-container>
+      </main>
+    </div>
   `,
   styles: [`
     :host { display: flex; flex-direction: column; height: 100vh; }
-    .barra { background: #1565c0; color: #fff; flex: 0 0 auto; }
-    .titulo { margin-left: 8px; font-weight: 500; letter-spacing: .3px; }
-    .relleno { flex: 1; }
-    .contenedor { flex: 1; }
-    .menu {
-      width: 240px; padding-top: 8px; background: #0d47a1; color: #fff; border-radius: 0;
-      --mat-list-list-item-label-text-color: #fff;
-      --mat-list-list-item-leading-icon-color: #fff;
-      --mat-list-list-item-hover-label-text-color: #fff;
-      --mat-list-list-item-focus-label-text-color: #fff;
+ 
+    .barra {
+      flex: 0 0 54px; display: flex; align-items: center; justify-content: center;
+      background: #1565c0; color: #fff;
     }
-    .operario { padding: 8px 16px 12px; font-size: 13px; opacity: .8; }
-    .activo { background: rgba(255, 255, 255, .18); }
-    .contenido { padding: 24px; background: #e8edf3; }
-    @media (max-width: 720px) { .contenido { padding: 12px; } }
+    .titulo { font-size: 18px; font-weight: 700; }
+ 
+    .cuerpo { flex: 1; display: flex; min-height: 0; }
+ 
+    .menu { flex: 0 0 240px; background: #0d47a1; color: #fff; padding: 16px 8px; overflow-y: auto; }
+    .operario { padding: 0 12px 14px; font-size: 12px; opacity: .85; }
+    .opcion {
+      display: block; padding: 9px 12px; margin-bottom: 4px; border-radius: 4px;
+      color: #fff; font-size: 14px; text-decoration: none;
+    }
+    .opcion:hover { background: rgba(255, 255, 255, .12); }
+    .opcion:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    .opcion.activo { background: #1565c0; font-weight: 700; }
+ 
+    .contenido { flex: 1; padding: 24px 32px; background: #f5f7fa; overflow-y: auto; }
+ 
+    @media (max-width: 720px) {
+      .cuerpo { flex-direction: column; }
+      .menu { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; }
+      .operario { width: 100%; padding: 0 8px 4px; }
+      .opcion { margin-bottom: 0; }
+      .contenido { padding: 16px; }
+    }
   `],
 })
 export class ShellComponent {
-  menuAbierto = signal(true);
   items: ItemMenu[] = [
-    { ruta: '/entrada', texto: 'Entrada', icono: 'login' },
-    { ruta: '/salida', texto: 'Salida', icono: 'logout' },
-    { ruta: '/ocupacion', texto: 'Ocupación', icono: 'local_parking' },
+    { ruta: '/entrada', texto: 'Entrada' },
+    { ruta: '/salida', texto: 'Salida' },
+    { ruta: '/ocupacion', texto: 'Ocupación' },
   ];
 }
