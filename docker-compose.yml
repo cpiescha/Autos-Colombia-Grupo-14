@@ -24,7 +24,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-autos_colombia}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autos_colombia_dev}
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8080}:8000"
     depends_on:
       db:
         condition: service_healthy
