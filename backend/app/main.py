@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.entries import router as entries_router
+from app.api.exits import router as exits_router
 from app.api.vehicles import router as vehicles_router
 
 app = FastAPI(
@@ -12,6 +13,7 @@ app = FastAPI(
 )
 app.include_router(vehicles_router)
 app.include_router(entries_router)
+app.include_router(exits_router)
 
 
 @app.exception_handler(RequestValidationError)

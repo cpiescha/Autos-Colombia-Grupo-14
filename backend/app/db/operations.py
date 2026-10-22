@@ -29,7 +29,7 @@ def close_stay_by_receipt(
     La celda queda libre al dejar de existir una permanencia abierta.
     El caller abre y confirma la transacción.
     """
-    code = receipt_code.strip().upper()
+    code = receipt_code.strip()
     closed_at = exited_at or _now()
 
     receipt = session.execute(
