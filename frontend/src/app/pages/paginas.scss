@@ -1,9 +1,14 @@
 :host { display: block; max-width: 760px; }
-h1 { margin: 0 0 4px; font-size: 24px; font-weight: 500; }
-.ayuda { margin: 0 0 20px; color: #5f6b7a; font-size: 14px; max-width: 62ch; }
+h1 { margin: 0 0 4px; font-size: 24px; font-weight: 500; color: #0d2a4d; }
+.ayuda { margin: 0 0 16px; color: #5f6b7a; font-size: 14px; max-width: 62ch; }
 .tarjeta { margin-bottom: 16px; }
-.fila { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.campo { width: 220px; }
+.fila { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.campo { width: 260px; }
+.panel { background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 16px; margin-bottom: 12px; display: grid; gap: 4px; }
+.aviso { padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; }
+.aviso-info { background: #e3f2fd; color: #0d47a1; }
+.aviso-error { background: #fdecea; color: #8c1d18; }
+.aviso-ok { background: #e6f4ea; color: #1b5e20; }
 .error { color: #b3261e; margin: 0; }
 .datos { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin: 12px 0; }
 .datos dt { color: #5f6b7a; }
@@ -15,4 +20,8 @@ h1 { margin: 0 0 4px; font-size: 24px; font-weight: 500; }
 .estado.dentro { background: #fff1c2; color: #6b4e00; }
 .comprobante { border: 2px dashed #9aa5b1; border-radius: 8px; padding: 16px; background: #fff; }
 .comprobante h2 { margin: 0 0 8px; font-size: 18px; font-weight: 500; }
-.celda-grande { display: inline-block; font-size: 28px; font-weight: 500; background: #1f2933; color: #f2b705; padding: 4px 16px; border-radius: 6px; margin: 4px 0 8px; }
+.celda-grande { display: inline-block; font-size: 28px; font-weight: 500; background: #0d47a1; color: #fff; padding: 4px 16px; border-radius: 6px; margin: 4px 0 8px; }
+button[mat-flat-button] {
+  --mat-button-filled-container-color: #1565c0;
+  --mat-button-filled-label-text-color: #fff;
+}

@@ -2,26 +2,12 @@ export type TipoVehiculo = 'CARRO' | 'MOTO';
 export type EstadoCelda = 'LIBRE' | 'OCUPADA' | 'MANTENIMIENTO';
 export type TipoComprobante = 'ENTRADA' | 'SALIDA';
 
-export interface Cliente {
-  nombres: string;
-  apellidos: string;
-  numeroDocumento: string;
-  telefono: string;
-}
-
-export interface Mensualidad {
-  fechaInicio: Date;
-  fechaFin: Date;
-  valor: number;
-}
-
 export interface Vehiculo {
   placa: string;
   tipo: TipoVehiculo;
   marca: string;
   color: string;
-  cliente: Cliente;
-  mensualidad: Mensualidad;
+  mensualidadFin: Date;
 }
 
 export interface Celda {
@@ -42,14 +28,18 @@ export interface RegistroAcceso {
   celda: string;
   entrada: Date;
   salida?: Date;
+  operario: string;
   comprobanteEntrada: Comprobante;
   comprobanteSalida?: Comprobante;
 }
 
-export interface ConsultaResultado {
-  vehiculo: Vehiculo;
-  mensualidadVigente: boolean;
-  dentroDelParqueadero: boolean;
+export type EstadoConsulta = 'AUTORIZADO' | 'NO_REGISTRADO' | 'VENCIDA' | 'YA_DENTRO' | 'SIN_CUPO';
+
+export interface ConsultaEntrada {
+  estado: EstadoConsulta;
+  mensaje: string;
+  vehiculo?: Vehiculo;
+  celdaActual?: string;
 }
 
 export interface Resultado<T> {

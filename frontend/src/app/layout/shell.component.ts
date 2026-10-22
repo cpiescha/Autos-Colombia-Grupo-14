@@ -19,14 +19,12 @@ interface ItemMenu { ruta: string; texto: string; icono: string; }
         <mat-icon>menu</mat-icon>
       </button>
       <span class="titulo">Autos Colombia</span>
-      <span class="subtitulo">Control de acceso</span>
       <span class="relleno"></span>
-      <mat-icon aria-hidden="true">badge</mat-icon>
-      <span class="operario">Operario</span>
     </mat-toolbar>
 
     <mat-sidenav-container class="contenedor">
       <mat-sidenav mode="side" [opened]="menuAbierto()" class="menu">
+        <div class="operario">Operario Diurno 1</div>
         <mat-nav-list>
           @for (item of items; track item.ruta) {
             <a mat-list-item [routerLink]="item.ruta" routerLinkActive="activo">
@@ -43,23 +41,27 @@ interface ItemMenu { ruta: string; texto: string; icono: string; }
   `,
   styles: [`
     :host { display: flex; flex-direction: column; height: 100vh; }
-    .barra { background: #1f2933; color: #fff; border-bottom: 4px solid #f2b705; flex: 0 0 auto; }
+    .barra { background: #1565c0; color: #fff; flex: 0 0 auto; }
     .titulo { margin-left: 8px; font-weight: 500; letter-spacing: .3px; }
-    .subtitulo { margin-left: 12px; opacity: .7; font-size: 14px; }
     .relleno { flex: 1; }
-    .operario { margin-left: 8px; font-size: 14px; }
     .contenedor { flex: 1; }
-    .menu { width: 240px; padding-top: 8px; }
-    .activo { background: rgba(242, 183, 5, .22); }
-    .contenido { padding: 24px; background: #f4f5f7; }
-    @media (max-width: 720px) { .subtitulo, .operario { display: none; } .contenido { padding: 12px; } }
+    .menu {
+      width: 240px; padding-top: 8px; background: #0d47a1; color: #fff; border-radius: 0;
+      --mat-list-list-item-label-text-color: #fff;
+      --mat-list-list-item-leading-icon-color: #fff;
+      --mat-list-list-item-hover-label-text-color: #fff;
+      --mat-list-list-item-focus-label-text-color: #fff;
+    }
+    .operario { padding: 8px 16px 12px; font-size: 13px; opacity: .8; }
+    .activo { background: rgba(255, 255, 255, .18); }
+    .contenido { padding: 24px; background: #e8edf3; }
+    @media (max-width: 720px) { .contenido { padding: 12px; } }
   `],
 })
 export class ShellComponent {
   menuAbierto = signal(true);
   items: ItemMenu[] = [
-    { ruta: '/consulta', texto: 'Consulta', icono: 'search' },
-    { ruta: '/ingreso', texto: 'Ingreso', icono: 'login' },
+    { ruta: '/entrada', texto: 'Entrada', icono: 'login' },
     { ruta: '/salida', texto: 'Salida', icono: 'logout' },
     { ruta: '/ocupacion', texto: 'Ocupación', icono: 'local_parking' },
   ];
