@@ -36,23 +36,17 @@ docker compose up --build
 Servicios disponibles:
 
 - Frontend: <http://localhost:4200>
-- Backend: <http://localhost:8000>
-- Salud del backend: <http://localhost:8000/api/health>
-- Documentación de la API: <http://localhost:8000/docs>
+- Backend: <http://localhost:8080>
+- Salud del backend: <http://localhost:8080/api/health>
+- Documentación de la API: <http://localhost:8080/docs>
 
-Si el puerto `8000` está reservado en Windows, iniciar el entorno con otro puerto del anfitrión:
-
-```bash
-BACKEND_PORT=8080 docker compose up --build
-```
-
-La comunicación interna conserva `backend:8000`; solo cambia la URL local a <http://localhost:8080>.
+El backend usa `8080` en el equipo anfitrión porque está disponible en el entorno de desarrollo. Dentro de Docker conserva el puerto `8000`, por lo que la comunicación interna sigue usando `backend:8000`.
 
 Comprobar el estado:
 
 ```bash
 docker compose ps
-curl http://localhost:8000/api/health
+curl http://localhost:8080/api/health
 ```
 
 ## Detener el entorno
