@@ -1,0 +1,18 @@
+:host { display: block; max-width: 760px; }
+h1 { margin: 0 0 4px; font-size: 24px; font-weight: 500; }
+.ayuda { margin: 0 0 20px; color: #5f6b7a; font-size: 14px; max-width: 62ch; }
+.tarjeta { margin-bottom: 16px; }
+.fila { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.campo { width: 220px; }
+.error { color: #b3261e; margin: 0; }
+.datos { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin: 12px 0; }
+.datos dt { color: #5f6b7a; }
+.datos dd { margin: 0; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.estado { padding: 4px 12px; border-radius: 14px; font-size: 13px; background: #e4e7eb; color: #323f4b; }
+.estado.ok { background: #d6f0dc; color: #1b5e2f; }
+.estado.mal { background: #fbdcd9; color: #8c1d18; }
+.estado.dentro { background: #fff1c2; color: #6b4e00; }
+.comprobante { border: 2px dashed #9aa5b1; border-radius: 8px; padding: 16px; background: #fff; }
+.comprobante h2 { margin: 0 0 8px; font-size: 18px; font-weight: 500; }
+.celda-grande { display: inline-block; font-size: 28px; font-weight: 500; background: #1f2933; color: #f2b705; padding: 4px 16px; border-radius: 6px; margin: 4px 0 8px; }
