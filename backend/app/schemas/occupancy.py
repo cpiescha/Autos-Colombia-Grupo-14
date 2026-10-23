@@ -16,6 +16,7 @@ class MovimientoActivoResponse(BaseModel):
     placa: str
     celda: str
     fecha_entrada: datetime
+    comprobante: str | None = None
 
 
 class TotalesOcupacionResponse(BaseModel):

@@ -1,107 +1,334 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import {
-  Celda, Comprobante, ConsultaEntrada, CorreccionAuditoria, RegistroAcceso, Resultado, TipoComprobante, TipoVehiculo, Vehiculo,
+  Celda,
+  Comprobante,
+  ConsultaEntrada,
+  CorreccionAuditoria,
+  RegistroAcceso,
+  Resultado,
+  TipoComprobante,
+  TipoVehiculo,
+  Vehiculo,
 } from '../models/models';
 
-const OPERARIO = 'Diurno 1';
-const horasAtras = (h: number): Date => new Date(Date.now() - h * 3_600_000);
+const OPERARIO_ID = 1;
+const OPERARIO_NOMBRE = 'Diurno 1';
 const numero = (i: number): string => String(i + 1).padStart(2, '0');
 
-const crearCeldas = (): Celda[] => [
-  ...Array.from({ length: 70 }, (_, i): Celda => ({ codigo: `A-${numero(i)}`, tipoVehiculo: 'CARRO', estado: i === 0 ? 'OCUPADA' : 'LIBRE' })),
+const crearCeldasIniciales = (): Celda[] => [
+  ...Array.from({ length: 70 }, (_, i): Celda => ({ codigo: `A-${numero(i)}`, tipoVehiculo: 'CARRO', estado: 'LIBRE' })),
   ...Array.from({ length: 10 }, (_, i): Celda => ({ codigo: `M-${numero(i)}`, tipoVehiculo: 'MOTO', estado: 'LIBRE' })),
 ];
 
-/**
- * Servicio con DATOS SIMULADOS, alineado con los mockups de Paul (HU-01 a HU-09).
- * Cuando el backend esté listo, solo cambia el interior de cada método por una llamada HttpClient.
- */
+interface ApiCelda {
+  codigo: string;
+  categoria: string;
+  estado: string;
+  placa: string | null;
+}
+
+interface ApiMovimientoActivo {
+  permanencia_id: number;
+  placa: string;
+  celda: string;
+  fecha_entrada: string;
+  comprobante?: string | null;
+}
+
+interface ApiVehiculoLookup {
+  placa: string;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  color: string;
+  estado_mensualidad: 'vigente' | 'vencida';
+  authorized: boolean;
+  rejection_reason: string | null;
+}
+
+interface ApiEntradaResponse {
+  permanencia_id: number;
+  placa: string;
+  celda: string;
+  comprobante: string;
+  fecha_entrada: string;
+}
+
+interface ApiSalidaResponse {
+  permanencia_id: number;
+  placa: string;
+  celda: string;
+  fecha_entrada: string;
+  fecha_salida: string;
+}
+
+interface ApiCorreccionResponse {
+  movimiento_id: number;
+  celda_anterior: string;
+  celda_nueva: string;
+  operario_id: number;
+  fecha_correccion: string;
+}
+
+function mapearTipo(tipo: string): TipoVehiculo {
+  return tipo.toUpperCase().includes('MOTO') ? 'MOTO' : 'CARRO';
+}
+
+function mapearEstadoCelda(estado: string): 'LIBRE' | 'OCUPADA' {
+  return estado.toLowerCase() === 'ocupada' ? 'OCUPADA' : 'LIBRE';
+}
+
 @Injectable({ providedIn: 'root' })
 export class AccesoService {
-  private readonly vehiculos: Vehiculo[] = [
-    { placa: 'ABC123', tipo: 'CARRO', marca: 'Chevrolet Onix', color: 'Blanco', mensualidadFin: new Date(2026, 10, 21) },
-    { placa: 'VEN001', tipo: 'CARRO', marca: 'Renault Logan', color: 'Rojo', mensualidadFin: new Date(2026, 8, 30) },
-    { placa: 'INS001', tipo: 'CARRO', marca: 'Kia Rio', color: 'Azul', mensualidadFin: new Date(2026, 11, 31) },
-    { placa: 'XYZ99A', tipo: 'MOTO', marca: 'Yamaha FZ', color: 'Negro', mensualidadFin: new Date(2026, 11, 15) },
-  ];
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = '/api';
 
-  readonly celdas = signal<Celda[]>(crearCeldas());
+  private readonly cacheVehiculos = new Map<string, Vehiculo>();
 
-  readonly registros = signal<RegistroAcceso[]>([
-    {
-      id: 1, placa: 'INS001', celda: 'A-01', entrada: horasAtras(30), operario: OPERARIO,
-      comprobanteEntrada: { numero: 'AC-INS001-OPEN', tipo: 'ENTRADA', fechaEmision: horasAtras(30) },
-    },
-  ]);
-
+  readonly celdas = signal<Celda[]>(crearCeldasIniciales());
+  readonly registros = signal<RegistroAcceso[]>([]);
   readonly correcciones = signal<CorreccionAuditoria[]>([]);
 
   readonly activos = computed(() => this.registros().filter((r) => !r.salida));
   readonly libres = computed(() => this.celdas().filter((c) => c.estado === 'LIBRE').length);
   readonly ocupadas = computed(() => this.celdas().filter((c) => c.estado === 'OCUPADA').length);
 
-  private contadorSalidas = 0;
+  constructor() {
+    this.cargarDatos();
+  }
 
   normalizar(placa: string): string {
     return placa.trim().toUpperCase().replace(/\s+/g, '');
   }
 
-  buscarVehiculo(placa: string): Vehiculo | undefined {
-    return this.vehiculos.find((v) => v.placa === this.normalizar(placa));
+  async cargarDatos(): Promise<void> {
+    try {
+      const [celdasApi, movimientosApi] = await Promise.all([
+        firstValueFrom(this.http.get<ApiCelda[]>(`${this.baseUrl}/celdas`)),
+        firstValueFrom(this.http.get<ApiMovimientoActivo[]>(`${this.baseUrl}/movimientos/activos`)),
+      ]);
+
+      const celdasMapeadas: Celda[] = celdasApi.map((c) => ({
+        codigo: c.codigo,
+        tipoVehiculo: mapearTipo(c.categoria),
+        estado: mapearEstadoCelda(c.estado),
+      }));
+      this.celdas.set(celdasMapeadas);
+
+      const registrosMapeados: RegistroAcceso[] = movimientosApi.map((m) => {
+        const fechaEntrada = new Date(m.fecha_entrada);
+        const numComprobante = m.comprobante || `AC-${m.placa}`;
+        return {
+          id: m.permanencia_id,
+          placa: m.placa,
+          celda: m.celda,
+          entrada: fechaEntrada,
+          operario: OPERARIO_NOMBRE,
+          comprobanteEntrada: {
+            numero: numComprobante,
+            tipo: 'ENTRADA' as TipoComprobante,
+            fechaEmision: fechaEntrada,
+          },
+        };
+      });
+      this.registros.set(registrosMapeados);
+    } catch (err) {
+      console.warn('Backend aún no responde en /api:', err);
+    }
   }
 
-  /** Paso 1 de la entrada (HU-01, HU-03): consulta sin modificar nada. */
-  consultarEntrada(placa: string): ConsultaEntrada {
-    const v = this.vehiculos.find((x) => x.placa === this.normalizar(placa));
-    if (!v) {
-      return { estado: 'NO_REGISTRADO', mensaje: 'El vehículo no está registrado. No se permite el ingreso. No se modificó la ocupación.' };
-    }
-    const abierto = this.activos().find((r) => r.placa === v.placa);
-    if (abierto) {
-      return { estado: 'YA_DENTRO', vehiculo: v, celdaActual: abierto.celda, mensaje: 'Este vehículo ya tiene una permanencia abierta. No se puede registrar otra entrada.' };
-    }
-    if (v.mensualidadFin < new Date()) {
-      return { estado: 'VENCIDA', vehiculo: v, mensaje: 'Mensualidad vencida. El vehículo no está autorizado para ingresar.' };
-    }
-    const delTipo = this.celdas().filter((c) => c.tipoVehiculo === v.tipo);
-    if (!delTipo.some((c) => c.estado === 'LIBRE')) {
-      const etiqueta = v.tipo === 'MOTO' ? 'motos' : 'automóviles';
-      return { estado: 'SIN_CUPO', vehiculo: v, mensaje: `No hay celdas disponibles para este tipo de vehículo (${etiqueta} ${delTipo.length}/${delTipo.length}).` };
-    }
-    return { estado: 'AUTORIZADO', vehiculo: v, mensaje: '' };
+  obtenerVehiculo(placa: string): Vehiculo | undefined {
+    return this.cacheVehiculos.get(this.normalizar(placa));
   }
 
-  /** Paso 2 (HU-02, HU-04): asigna celda y genera el comprobante. */
-  confirmarEntrada(placa: string): Resultado<RegistroAcceso> {
-    const c = this.consultarEntrada(placa);
-    if (c.estado !== 'AUTORIZADO' || !c.vehiculo) return { ok: false, mensaje: c.mensaje };
-
-    const celda = this.celdas().find((x) => x.estado === 'LIBRE' && x.tipoVehiculo === c.vehiculo!.tipo)!;
-    const registro: RegistroAcceso = {
-      id: this.registros().length + 1,
-      placa: c.vehiculo.placa,
-      celda: celda.codigo,
-      entrada: new Date(),
-      operario: OPERARIO,
-      comprobanteEntrada: { numero: this.codigoComprobante(), tipo: 'ENTRADA', fechaEmision: new Date() },
-    };
-    this.registros.update((l) => [...l, registro]);
-    this.cambiarEstadoCelda(celda.codigo, 'OCUPADA');
-    return { ok: true, mensaje: 'Entrada registrada correctamente.', dato: registro };
+  async buscarVehiculo(placa: string): Promise<Vehiculo | undefined> {
+    const norm = this.normalizar(placa);
+    if (this.cacheVehiculos.has(norm)) {
+      return this.cacheVehiculos.get(norm);
+    }
+    try {
+      const vApi = await firstValueFrom(
+        this.http.get<ApiVehiculoLookup>(`${this.baseUrl}/vehiculos/${norm}`)
+      );
+      const v: Vehiculo = {
+        placa: vApi.placa,
+        tipo: mapearTipo(vApi.tipo),
+        marca: vApi.marca,
+        color: vApi.color,
+        modelo: vApi.modelo,
+        mensualidadFin: new Date(),
+      };
+      this.cacheVehiculos.set(norm, v);
+      return v;
+    } catch {
+      return undefined;
+    }
   }
 
-  /** Se ajusta en la Etapa 2 (salida por comprobante). */
-  registrarSalida(placa: string): Resultado<RegistroAcceso> {
-    const activo = this.activos().find((r) => r.placa === this.normalizar(placa));
-    if (!activo) return { ok: false, mensaje: 'No hay un ingreso activo para esta placa.' };
-    const cerrado: RegistroAcceso = {
-      ...activo,
-      salida: new Date(),
-      comprobanteSalida: this.comprobanteSalida(),
-    };
-    this.registros.update((l) => l.map((r) => (r.id === activo.id ? cerrado : r)));
-    this.cambiarEstadoCelda(activo.celda, 'LIBRE');
-    return { ok: true, mensaje: 'Salida registrada. La celda quedó libre.', dato: cerrado };
+  async consultarEntrada(placa: string): Promise<ConsultaEntrada> {
+    const norm = this.normalizar(placa);
+    if (!norm) {
+      return { estado: 'NO_REGISTRADO', mensaje: 'Escriba una placa para consultar.' };
+    }
+
+    await this.cargarDatos();
+
+    try {
+      const vApi = await firstValueFrom(
+        this.http.get<ApiVehiculoLookup>(`${this.baseUrl}/vehiculos/${norm}`)
+      );
+
+      const vehiculo: Vehiculo = {
+        placa: vApi.placa,
+        tipo: mapearTipo(vApi.tipo),
+        marca: vApi.marca,
+        color: vApi.color,
+        modelo: vApi.modelo,
+        mensualidadFin: vApi.estado_mensualidad === 'vigente'
+          ? new Date(Date.now() + 30 * 86_400_000)
+          : new Date(Date.now() - 5 * 86_400_000),
+      };
+      this.cacheVehiculos.set(norm, vehiculo);
+
+      if (!vApi.authorized) {
+        if (vApi.rejection_reason === 'El vehículo ya tiene una permanencia abierta.') {
+          const abierto = this.activos().find((r) => r.placa === vehiculo.placa);
+          return {
+            estado: 'YA_DENTRO',
+            vehiculo,
+            celdaActual: abierto?.celda,
+            mensaje: 'Este vehículo ya tiene una permanencia abierta. No se puede registrar otra entrada.',
+          };
+        }
+        if (
+          vApi.estado_mensualidad === 'vencida' ||
+          vApi.rejection_reason === 'La mensualidad no está vigente.'
+        ) {
+          return {
+            estado: 'VENCIDA',
+            vehiculo,
+            mensaje: 'Mensualidad vencida. El vehículo no está autorizado para ingresar.',
+          };
+        }
+        return {
+          estado: 'NO_REGISTRADO',
+          vehiculo,
+          mensaje: vApi.rejection_reason || 'Vehículo no autorizado.',
+        };
+      }
+
+      const delTipo = this.celdas().filter((c) => c.tipoVehiculo === vehiculo.tipo);
+      if (delTipo.length > 0 && !delTipo.some((c) => c.estado === 'LIBRE')) {
+        const etiqueta = vehiculo.tipo === 'MOTO' ? 'motos' : 'automóviles';
+        return {
+          estado: 'SIN_CUPO',
+          vehiculo,
+          mensaje: `No hay celdas disponibles para este tipo de vehículo (${etiqueta} ${delTipo.length}/${delTipo.length}).`,
+        };
+      }
+
+      return { estado: 'AUTORIZADO', vehiculo, mensaje: '' };
+    } catch (err: any) {
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        return {
+          estado: 'NO_REGISTRADO',
+          mensaje: 'El vehículo no está registrado. No se permite el ingreso. No se modificó la ocupación.',
+        };
+      }
+      return {
+        estado: 'NO_REGISTRADO',
+        mensaje: err?.error?.detail || err?.error?.message || 'Error al consultar el vehículo.',
+      };
+    }
+  }
+
+  async confirmarEntrada(placa: string): Promise<Resultado<RegistroAcceso>> {
+    const norm = this.normalizar(placa);
+    try {
+      const res = await firstValueFrom(
+        this.http.post<ApiEntradaResponse>(`${this.baseUrl}/entradas`, {
+          placa: norm,
+          operario_id: OPERARIO_ID,
+        })
+      );
+
+      const fechaEntrada = new Date(res.fecha_entrada);
+      const registro: RegistroAcceso = {
+        id: res.permanencia_id,
+        placa: res.placa,
+        celda: res.celda,
+        entrada: fechaEntrada,
+        operario: OPERARIO_NOMBRE,
+        comprobanteEntrada: {
+          numero: res.comprobante,
+          tipo: 'ENTRADA',
+          fechaEmision: fechaEntrada,
+        },
+      };
+
+      this.registros.update((l) => [...l.filter((r) => r.id !== registro.id), registro]);
+      this.cambiarEstadoCelda(registro.celda, 'OCUPADA');
+      await this.cargarDatos();
+
+      return { ok: true, mensaje: 'Entrada registrada correctamente.', dato: registro };
+    } catch (err: any) {
+      const mensaje = err?.error?.message || 'No fue posible registrar la entrada.';
+      return { ok: false, mensaje };
+    }
+  }
+
+  async registrarSalida(placaOComprobante: string): Promise<Resultado<RegistroAcceso>> {
+    const texto = placaOComprobante.trim();
+    if (!texto) {
+      return { ok: false, mensaje: 'Escriba una placa o comprobante para registrar la salida.' };
+    }
+
+    await this.cargarDatos();
+
+    let codigoComprobante = texto;
+    const normPlaca = this.normalizar(texto);
+    const activo = this.activos().find((r) => r.placa === normPlaca);
+    if (activo && activo.comprobanteEntrada?.numero) {
+      codigoComprobante = activo.comprobanteEntrada.numero;
+    }
+
+    try {
+      const res = await firstValueFrom(
+        this.http.post<ApiSalidaResponse>(`${this.baseUrl}/salidas`, {
+          comprobante: codigoComprobante,
+          operario_id: OPERARIO_ID,
+        })
+      );
+
+      const fechaEntrada = new Date(res.fecha_entrada);
+      const fechaSalida = new Date(res.fecha_salida);
+      const cerrado: RegistroAcceso = {
+        id: res.permanencia_id,
+        placa: res.placa,
+        celda: res.celda,
+        entrada: fechaEntrada,
+        salida: fechaSalida,
+        operario: OPERARIO_NOMBRE,
+        comprobanteEntrada: {
+          numero: codigoComprobante,
+          tipo: 'ENTRADA',
+          fechaEmision: fechaEntrada,
+        },
+        comprobanteSalida: {
+          numero: `SAL-${res.permanencia_id}`,
+          tipo: 'SALIDA',
+          fechaEmision: fechaSalida,
+        },
+      };
+
+      await this.cargarDatos();
+      return { ok: true, mensaje: 'Salida registrada. La celda quedó libre.', dato: cerrado };
+    } catch (err: any) {
+      const mensaje = err?.error?.message || 'No fue posible registrar la salida.';
+      return { ok: false, mensaje };
+    }
   }
 
   permanencia(r: RegistroAcceso): string {
@@ -114,19 +341,6 @@ export class AccesoService {
     this.celdas.update((l) => l.map((c) => (c.codigo === codigo ? { ...c, estado } : c)));
   }
 
-  private codigoComprobante(): string {
-    const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const bloque = () => Array.from({ length: 4 }, () => letras[Math.floor(Math.random() * letras.length)]).join('');
-    return `AC-${bloque()}-${bloque()}`;
-  }
-
-  private comprobanteSalida(): Comprobante {
-    this.contadorSalidas++;
-    const tipo: TipoComprobante = 'SALIDA';
-    return { numero: `SAL-${String(this.contadorSalidas).padStart(4, '0')}`, tipo, fechaEmision: new Date() };
-  }
-
-  /** HU-09: lista las celdas libres compatibles con el tipo del vehículo del registro. */
   celdasCompatibles(idRegistro: number): Celda[] {
     const registro = this.registros().find((r) => r.id === idRegistro && !r.salida);
     if (!registro) return [];
@@ -134,8 +348,7 @@ export class AccesoService {
     return this.celdas().filter((c) => c.estado === 'LIBRE' && c.tipoVehiculo === tipo);
   }
 
-  /** HU-09: corrige la celda de una permanencia abierta sin crear otro movimiento. */
-  corregirCelda(idRegistro: number, codigoNuevo: string): Resultado<CorreccionAuditoria> {
+  async corregirCelda(idRegistro: number, codigoNuevo: string): Promise<Resultado<CorreccionAuditoria>> {
     const registro = this.registros().find((r) => r.id === idRegistro && !r.salida);
     if (!registro) {
       return { ok: false, mensaje: 'No se encontró la permanencia abierta a corregir.' };
@@ -145,29 +358,38 @@ export class AccesoService {
     if (nueva === anterior) {
       return { ok: false, mensaje: 'La nueva celda debe ser diferente a la actual.' };
     }
-    const destino = this.celdas().find((c) => c.codigo === nueva);
-    if (!destino) {
-      return { ok: false, mensaje: `La celda ${nueva} no existe.` };
+
+    try {
+      const res = await firstValueFrom(
+        this.http.patch<ApiCorreccionResponse>(
+          `${this.baseUrl}/movimientos/${idRegistro}/celda`,
+          {
+            celda: nueva,
+            operario_id: OPERARIO_ID,
+          }
+        )
+      );
+
+      const auditoria: CorreccionAuditoria = {
+        idRegistro: res.movimiento_id,
+        placa: registro.placa,
+        celdaAnterior: res.celda_anterior,
+        celdaNueva: res.celda_nueva,
+        operario: OPERARIO_NOMBRE,
+        fecha: new Date(res.fecha_correccion),
+      };
+
+      this.correcciones.update((l) => [...l, auditoria]);
+      await this.cargarDatos();
+
+      return {
+        ok: true,
+        mensaje: `Celda actualizada de ${res.celda_anterior} a ${res.celda_nueva}.`,
+        dato: auditoria,
+      };
+    } catch (err: any) {
+      const mensaje = err?.error?.message || 'No fue posible corregir la celda.';
+      return { ok: false, mensaje };
     }
-    const tipoActual: TipoVehiculo = anterior.startsWith('M') ? 'MOTO' : 'CARRO';
-    if (destino.tipoVehiculo !== tipoActual) {
-      return { ok: false, mensaje: `La celda ${nueva} no es compatible con el tipo del vehículo.` };
-    }
-    if (destino.estado !== 'LIBRE') {
-      return { ok: false, mensaje: `La celda ${nueva} está ocupada y no puede recibir otra permanencia.` };
-    }
-    this.registros.update((l) => l.map((r) => (r.id === idRegistro ? { ...r, celda: nueva } : r)));
-    this.cambiarEstadoCelda(anterior, 'LIBRE');
-    this.cambiarEstadoCelda(nueva, 'OCUPADA');
-    const auditoria: CorreccionAuditoria = {
-      idRegistro,
-      placa: registro.placa,
-      celdaAnterior: anterior,
-      celdaNueva: nueva,
-      operario: OPERARIO,
-      fecha: new Date(),
-    };
-    this.correcciones.update((l) => [...l, auditoria]);
-    return { ok: true, mensaje: `Celda actualizada de ${anterior} a ${nueva}.`, dato: auditoria };
   }
 }

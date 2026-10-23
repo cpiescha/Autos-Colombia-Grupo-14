@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { AccesoService } from '../../services/acceso.service';
 
 @Component({
@@ -31,8 +31,9 @@ import { AccesoService } from '../../services/acceso.service';
     .panel { background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 16px; display: grid; gap: 4px; }
   `],
 })
-export class ReportesComponent {
+export class ReportesComponent implements OnInit {
   acceso = inject(AccesoService);
+  ngOnInit(): void { this.acceso.cargarDatos(); }
   private conteo = (tipo: 'MOTO' | 'CARRO') => {
     const lista = this.acceso.celdas().filter((c) => c.tipoVehiculo === tipo);
     return { total: lista.length, ocupadas: lista.filter((c) => c.estado === 'OCUPADA').length };

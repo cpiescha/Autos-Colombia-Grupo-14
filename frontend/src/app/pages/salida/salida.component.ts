@@ -58,13 +58,14 @@ export class SalidaComponent implements OnInit {
 
   ngOnInit(): void {
     this.placa = this.ruta.snapshot.queryParamMap.get('placa') ?? '';
+    this.acceso.cargarDatos();
   }
 
-  registrar(): void {
+  async registrar(): Promise<void> {
     this.error.set('');
     this.registro.set(null);
     if (!this.placa.trim()) { this.error.set('Escriba una placa para registrar la salida.'); return; }
-    const r = this.acceso.registrarSalida(this.placa);
+    const r = await this.acceso.registrarSalida(this.placa);
     if (!r.ok) { this.error.set(r.mensaje); this.aviso.open(r.mensaje, 'Cerrar', { duration: 4000 }); return; }
     this.registro.set(r.dato!);
     this.aviso.open(r.mensaje, 'Cerrar', { duration: 3000 });

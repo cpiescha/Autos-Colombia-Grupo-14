@@ -1,9 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AccesoService } from '../../services/acceso.service';
-import { CorreccionAuditoria } from '../../models/models';
+import { CorreccionAuditoria, Vehiculo } from '../../models/models';
 
 type Fase = 'editar' | 'listo';
 
@@ -88,18 +88,29 @@ type Fase = 'editar' | 'listo';
   `,
   styleUrls: ['../paginas.scss'],
 })
-export class CorreccionComponent {
+export class CorreccionComponent implements OnInit {
   private readonly acceso = inject(AccesoService);
   private readonly ruta = inject(ActivatedRoute);
 
   readonly idRegistro = Number(this.ruta.snapshot.paramMap.get('id'));
 
+  async ngOnInit(): Promise<void> {
+    await this.acceso.cargarDatos();
+    const r = this.registro();
+    if (r && !this.acceso.obtenerVehiculo(r.placa)) {
+      const v = await this.acceso.buscarVehiculo(r.placa);
+      this.vehiculoHidratado.set(v);
+    }
+  }
+
   readonly registro = computed(() =>
     this.acceso.activos().find((r) => r.id === this.idRegistro),
   );
+  readonly vehiculoHidratado = signal<Vehiculo | undefined>(undefined);
   readonly vehiculo = computed(() => {
     const r = this.registro();
-    return r ? this.acceso.buscarVehiculo(r.placa) : undefined;
+    if (!r) return undefined;
+    return this.acceso.obtenerVehiculo(r.placa) ?? this.vehiculoHidratado();
   });
   readonly compatibles = computed(() => this.acceso.celdasCompatibles(this.idRegistro));
   readonly tipoLegible = computed(() => {
@@ -114,9 +125,9 @@ export class CorreccionComponent {
 
   nuevaCelda = '';
 
-  guardar(): void {
+  async guardar(): Promise<void> {
     this.errorMensaje.set('');
-    const resultado = this.acceso.corregirCelda(this.idRegistro, this.nuevaCelda);
+    const resultado = await this.acceso.corregirCelda(this.idRegistro, this.nuevaCelda);
     if (!resultado.ok || !resultado.dato) {
       this.errorMensaje.set(resultado.mensaje);
       return;

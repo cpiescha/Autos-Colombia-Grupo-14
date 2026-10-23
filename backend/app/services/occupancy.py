@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.enums import SpotCategory
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_stay import ParkingStay
+from app.models.receipt import Receipt
 from app.models.vehicle import Vehicle
 
 
@@ -24,6 +25,7 @@ class MovimientoActivo:
     placa: str
     celda: str
     fecha_entrada: datetime
+    comprobante: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,9 +82,11 @@ class OccupancyService:
                 Vehicle.license_plate,
                 ParkingSpot.code,
                 ParkingStay.entered_at,
+                Receipt.code,
             )
             .join(Vehicle, Vehicle.id == ParkingStay.vehicle_id)
             .join(ParkingSpot, ParkingSpot.id == ParkingStay.parking_spot_id)
+            .outerjoin(Receipt, Receipt.parking_stay_id == ParkingStay.id)
             .where(ParkingStay.exited_at.is_(None))
             .order_by(ParkingStay.entered_at, ParkingStay.id)
         )
@@ -91,13 +95,14 @@ class OccupancyService:
                 permanencia_id=stay_id,
                 placa=plate,
                 celda=spot_code,
+                comprobante=receipt_code,
                 fecha_entrada=(
                     entered_at.replace(tzinfo=timezone.utc)
                     if entered_at.tzinfo is None
                     else entered_at
                 ),
             )
-            for stay_id, plate, spot_code, entered_at in self.db.execute(statement)
+            for stay_id, plate, spot_code, entered_at, receipt_code in self.db.execute(statement)
         ]
 
     def occupancy_report(self) -> ReporteOcupacion:

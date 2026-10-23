@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -59,9 +59,11 @@ import { AccesoService } from '../../services/acceso.service';
     .tabla { width: 100%; }
   `],
 })
-export class OcupacionComponent {
+export class OcupacionComponent implements OnInit {
   acceso = inject(AccesoService);
   columnas = ['placa', 'celda', 'entrada', 'comprobante'];
+
+  ngOnInit(): void { this.acceso.cargarDatos(); }
 
   etiqueta(e: string): string {
     return e === 'LIBRE' ? 'Libre' : e === 'OCUPADA' ? 'Ocupada' : 'Mantenimiento';
