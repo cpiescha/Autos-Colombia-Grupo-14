@@ -88,7 +88,7 @@ JOIN operators o ON o.name = 'Operario Diurno 1'
 WHERE v.license_plate = 'INS001'
   AND NOT EXISTS (
       SELECT 1 FROM parking_stays ps
-      WHERE ps.vehicle_id = v.id AND ps.exited_at IS NULL
+      WHERE ps.vehicle_id = v.id
   )
   AND NOT EXISTS (
       SELECT 1 FROM parking_stays ps
@@ -121,7 +121,7 @@ JOIN operators o ON o.name = 'Operario Diurno 1'
 WHERE v.license_plate = 'MOT303'
   AND NOT EXISTS (
       SELECT 1 FROM parking_stays ps
-      WHERE ps.vehicle_id = v.id AND ps.exited_at IS NULL
+      WHERE ps.vehicle_id = v.id
   )
   AND NOT EXISTS (
       SELECT 1 FROM parking_stays ps

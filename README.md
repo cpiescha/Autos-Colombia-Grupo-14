@@ -96,7 +96,7 @@ Get-Content backend/scripts/seed.sql -Raw |
   docker compose exec -T db psql -U autos_colombia -d autos_colombia
 ```
 
-El script es repetible: conserva los movimientos y comprobantes existentes y no duplica los catálogos principales.
+El script es repetible: conserva los movimientos y comprobantes existentes, no duplica los catálogos principales y no recrea una permanencia de demostración que ya fue cerrada. Para restaurar exactamente los dos casos de salida iniciales se debe reiniciar voluntariamente el volumen con `docker compose down -v` y volver a levantar el entorno.
 
 ### Datos disponibles
 
