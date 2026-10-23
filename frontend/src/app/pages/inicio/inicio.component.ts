@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AccesoService } from '../../services/acceso.service';
 
@@ -34,6 +34,7 @@ import { AccesoService } from '../../services/acceso.service';
     .boton.claro { background: #e3f2fd; color: #0d47a1; }
   `],
 })
-export class InicioComponent {
+export class InicioComponent implements OnInit {
   acceso = inject(AccesoService);
+  ngOnInit(): void { this.acceso.cargarDatos(); }
 }

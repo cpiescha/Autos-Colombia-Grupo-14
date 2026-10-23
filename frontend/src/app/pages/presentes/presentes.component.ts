@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AccesoService } from '../../services/acceso.service';
@@ -47,6 +47,7 @@ import { AccesoService } from '../../services/acceso.service';
     .accion:focus-visible { outline: 2px solid #1565c0; outline-offset: 2px; border-radius: 2px; }
   `],
 })
-export class PresentesComponent {
+export class PresentesComponent implements OnInit {
   acceso = inject(AccesoService);
+  ngOnInit(): void { this.acceso.cargarDatos(); }
 }

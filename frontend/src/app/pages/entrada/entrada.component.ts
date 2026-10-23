@@ -147,15 +147,16 @@ export class EntradaComponent {
     return 'Vehículo encontrado';
   }
  
-  consultar(): void {
+  async consultar(): Promise<void> {
     this.consulta.set(null);
     this.vacio.set(!this.placa.trim());
     if (this.vacio()) return;
-    this.consulta.set(this.acceso.consultarEntrada(this.placa));
+    const res = await this.acceso.consultarEntrada(this.placa);
+    this.consulta.set(res);
   }
  
-  confirmar(): void {
-    const r = this.acceso.confirmarEntrada(this.placa);
+  async confirmar(): Promise<void> {
+    const r = await this.acceso.confirmarEntrada(this.placa);
     if (!r.ok) {
       this.conflicto.set(true);
       return;
@@ -164,10 +165,10 @@ export class EntradaComponent {
     this.fase.set('listo');
   }
  
-  volverAConsultar(): void {
+  async volverAConsultar(): Promise<void> {
     this.conflicto.set(false);
     this.fase.set('buscar');
-    this.consultar();
+    await this.consultar();
   }
  
   reiniciar(): void {

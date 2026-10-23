@@ -7,6 +7,7 @@ export interface Vehiculo {
   tipo: TipoVehiculo;
   marca: string;
   color: string;
+  modelo?: string;
   mensualidadFin: Date;
 }
 
