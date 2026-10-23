@@ -65,7 +65,39 @@ docker compose restart frontend backend
 
 > `docker compose down -v` elimina el volumen y todos los datos locales; usarlo solo cuando se quiera reiniciar la base desde cero. El siguiente `docker compose up --build` volverá a crear el esquema y cargar las semillas automáticamente.
 
-## Pruebas del backend
+## Datos de demostración
+
+La carga es idempotente e incluye 80 celdas, varios carros y motos con mensualidad vigente, un caso vencido y dos permanencias abiertas para probar salida.
+
+| Uso | Datos |
+|---|---|
+| Ingreso de carros | `ABC123`, `CAR101`, `CAR202`, `CAR303`, `DEF456` |
+| Ingreso de motos | `XYZ99A`, `MOT101`, `MOT202` |
+| Rechazo por mensualidad vencida | `VEN001` |
+| Salida de carro | comprobante `AC-INS001-OPEN` |
+| Salida de moto | comprobante `AC-MOT303-OPEN` |
+
+En una base ya creada, aplicar las nuevas semillas sin borrar movimientos existentes:
+
+```bash
+docker compose exec -T db psql -U autos_colombia -d autos_colombia < backend/scripts/seed.sql
+```
+
+## Recorrido de entrega
+
+1. Consultar una placa vigente o vencida.
+2. Registrar una entrada; la API asigna una celda compatible y genera el comprobante.
+3. Registrar la salida usando obligatoriamente el comprobante y confirmar la vista previa.
+4. Revisar ocupación, vehículos presentes y reportes.
+5. Corregir la celda de una permanencia abierta desde **Vehículos presentes**.
+
+El registro guiado y los datos esperados están en [`docs/VERIFICACION_MANUAL_ITERACION_1.md`](docs/VERIFICACION_MANUAL_ITERACION_1.md).
+
+## Verificaciones automatizadas (pendientes)
+
+El proyecto conserva las pruebas en `backend/tests/`, pero las pruebas unitarias, de integración y la prueba concurrente T13 se ejecutarán en una etapa posterior según la decisión del equipo. No se declara T13 verificada hasta probar dos ingresos simultáneos contra PostgreSQL.
+
+Cuando corresponda ejecutarlas:
 
 ```bash
 cd backend
@@ -76,14 +108,14 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-## Estructura inicial
+## Estructura
 
 ```text
 frontend/            Aplicación Angular
 backend/app/         API FastAPI
-backend/tests/       Pruebas del backend
+backend/scripts/     Esquema, restricciones y semillas PostgreSQL
+backend/tests/       Pruebas automatizadas pendientes de ejecución final
+docs/                Recorrido y evidencia manual
 docker-compose.yml   Entorno local reproducible
 .env.example         Variables locales de ejemplo
 ```
-
-Esta base corresponde a T01. Los modelos, restricciones, semillas y reglas de negocio se implementan en las tareas posteriores del plan.

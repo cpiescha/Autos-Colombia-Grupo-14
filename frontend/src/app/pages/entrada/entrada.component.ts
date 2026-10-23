@@ -19,8 +19,8 @@ type Fase = 'buscar' | 'confirmar' | 'listo';
  
         <label class="etiqueta" for="placa">Placa</label>
         <input id="placa" class="entrada-texto" [(ngModel)]="placa" (keyup.enter)="consultar()"
-               maxlength="7" autocomplete="off" />
-        <div class="bloque"><button type="button" class="btn" (click)="consultar()">Consultar</button></div>
+               maxlength="7" autocomplete="off" [disabled]="cargando()" />
+        <div class="bloque"><button type="button" class="btn" (click)="consultar()" [disabled]="cargando()">{{ cargando() ? 'Consultando…' : 'Consultar' }}</button></div>
  
         @if (vacio()) {
           <div class="alerta alerta-error" role="alert">Escriba una placa para consultar.</div>
@@ -90,13 +90,12 @@ type Fase = 'buscar' | 'confirmar' | 'listo';
  
         @if (conflicto()) {
           <div class="alerta alerta-aviso" role="alert">
-            No hay celdas disponibles: otro operario acaba de asignar la última celda compatible.
-            No se duplicó la celda. El parqueadero no se alteró para esta solicitud.
+            {{ errorConfirmacion() }}
           </div>
           <button type="button" class="btn btn-claro" (click)="volverAConsultar()">Volver a consultar disponibilidad</button>
         } @else {
           <div class="bloque">
-            <button type="button" class="btn" (click)="confirmar()">Confirmar entrada y asignar celda</button>
+            <button type="button" class="btn" (click)="confirmar()" [disabled]="cargando()">{{ cargando() ? 'Registrando…' : 'Confirmar entrada y asignar celda' }}</button>
           </div>
           <button type="button" class="btn btn-claro" (click)="reiniciar()">Cancelar</button>
         }
@@ -138,6 +137,8 @@ export class EntradaComponent {
   registro = signal<RegistroAcceso | null>(null);
   vacio = signal(false);
   conflicto = signal(false);
+  cargando = signal(false);
+  errorConfirmacion = signal('');
  
   titulo(c: ConsultaEntrada): string {
     if (c.estado === 'YA_DENTRO') return 'Vehículo';
@@ -151,22 +152,35 @@ export class EntradaComponent {
     this.consulta.set(null);
     this.vacio.set(!this.placa.trim());
     if (this.vacio()) return;
-    const res = await this.acceso.consultarEntrada(this.placa);
-    this.consulta.set(res);
+    this.cargando.set(true);
+    try {
+      const res = await this.acceso.consultarEntrada(this.placa);
+      this.consulta.set(res);
+    } finally {
+      this.cargando.set(false);
+    }
   }
  
   async confirmar(): Promise<void> {
-    const r = await this.acceso.confirmarEntrada(this.placa);
-    if (!r.ok) {
-      this.conflicto.set(true);
-      return;
+    if (this.cargando()) return;
+    this.cargando.set(true);
+    try {
+      const r = await this.acceso.confirmarEntrada(this.placa);
+      if (!r.ok) {
+        this.errorConfirmacion.set(r.mensaje);
+        this.conflicto.set(true);
+        return;
+      }
+      this.registro.set(r.dato!);
+      this.fase.set('listo');
+    } finally {
+      this.cargando.set(false);
     }
-    this.registro.set(r.dato!);
-    this.fase.set('listo');
   }
  
   async volverAConsultar(): Promise<void> {
     this.conflicto.set(false);
+    this.errorConfirmacion.set('');
     this.fase.set('buscar');
     await this.consultar();
   }
@@ -177,6 +191,8 @@ export class EntradaComponent {
     this.registro.set(null);
     this.vacio.set(false);
     this.conflicto.set(false);
+    this.errorConfirmacion.set('');
+    this.cargando.set(false);
     this.fase.set('buscar');
   }
  
