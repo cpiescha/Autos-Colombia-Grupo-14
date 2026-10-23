@@ -42,6 +42,8 @@ Servicios disponibles:
 
 El backend usa `8080` en el equipo anfitrión porque está disponible en el entorno de desarrollo. Dentro de Docker conserva el puerto `8000`, por lo que la comunicación interna sigue usando `backend:8000`.
 
+En el primer inicio, PostgreSQL ejecuta automáticamente `backend/scripts/schema.sql` y `backend/scripts/seed.sql`. Esto crea el esquema y carga las 80 celdas y los datos de prueba. Los scripts de inicialización solo se ejecutan cuando el volumen de PostgreSQL está vacío.
+
 Comprobar el estado:
 
 ```bash
@@ -61,7 +63,7 @@ El volumen nombrado `postgres_data` conserva la información de PostgreSQL cuand
 docker compose restart frontend backend
 ```
 
-> `docker compose down -v` elimina el volumen y todos los datos locales; usarlo solo cuando se quiera reiniciar la base desde cero.
+> `docker compose down -v` elimina el volumen y todos los datos locales; usarlo solo cuando se quiera reiniciar la base desde cero. El siguiente `docker compose up --build` volverá a crear el esquema y cargar las semillas automáticamente.
 
 ## Pruebas del backend
 

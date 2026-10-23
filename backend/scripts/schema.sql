@@ -46,7 +46,14 @@ CREATE TABLE parking_stays (
     entry_operator_id  INTEGER NOT NULL REFERENCES operators (id),
     entered_at         TIMESTAMPTZ NOT NULL,
     exit_operator_id   INTEGER REFERENCES operators (id),
-    exited_at          TIMESTAMPTZ
+    exited_at          TIMESTAMPTZ,
+    CONSTRAINT ck_stay_exit_pair CHECK (
+        (exited_at IS NULL AND exit_operator_id IS NULL)
+        OR (exited_at IS NOT NULL AND exit_operator_id IS NOT NULL)
+    ),
+    CONSTRAINT ck_stay_exit_after_entry CHECK (
+        exited_at IS NULL OR exited_at >= entered_at
+    )
 );
 
 CREATE UNIQUE INDEX uq_open_stay_per_vehicle
@@ -70,5 +77,6 @@ CREATE TABLE cell_corrections (
     previous_spot_id INTEGER NOT NULL REFERENCES parking_spots (id),
     new_spot_id      INTEGER NOT NULL REFERENCES parking_spots (id),
     operator_id      INTEGER NOT NULL REFERENCES operators (id),
-    corrected_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    corrected_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_correction_different_spots CHECK (previous_spot_id <> new_spot_id)
 );
