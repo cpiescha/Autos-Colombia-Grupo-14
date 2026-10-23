@@ -1,6 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import {
-  Celda, Comprobante, ConsultaEntrada, RegistroAcceso, Resultado, TipoComprobante, Vehiculo,
+  Celda, Comprobante, ConsultaEntrada, CorreccionAuditoria, RegistroAcceso, Resultado, TipoComprobante, TipoVehiculo, Vehiculo,
 } from '../models/models';
 
 const OPERARIO = 'Diurno 1';
@@ -34,6 +34,8 @@ export class AccesoService {
     },
   ]);
 
+  readonly correcciones = signal<CorreccionAuditoria[]>([]);
+
   readonly activos = computed(() => this.registros().filter((r) => !r.salida));
   readonly libres = computed(() => this.celdas().filter((c) => c.estado === 'LIBRE').length);
   readonly ocupadas = computed(() => this.celdas().filter((c) => c.estado === 'OCUPADA').length);
@@ -42,6 +44,10 @@ export class AccesoService {
 
   normalizar(placa: string): string {
     return placa.trim().toUpperCase().replace(/\s+/g, '');
+  }
+
+  buscarVehiculo(placa: string): Vehiculo | undefined {
+    return this.vehiculos.find((v) => v.placa === this.normalizar(placa));
   }
 
   /** Paso 1 de la entrada (HU-01, HU-03): consulta sin modificar nada. */
@@ -118,5 +124,50 @@ export class AccesoService {
     this.contadorSalidas++;
     const tipo: TipoComprobante = 'SALIDA';
     return { numero: `SAL-${String(this.contadorSalidas).padStart(4, '0')}`, tipo, fechaEmision: new Date() };
+  }
+
+  /** HU-09: lista las celdas libres compatibles con el tipo del vehículo del registro. */
+  celdasCompatibles(idRegistro: number): Celda[] {
+    const registro = this.registros().find((r) => r.id === idRegistro && !r.salida);
+    if (!registro) return [];
+    const tipo: TipoVehiculo = registro.celda.startsWith('M') ? 'MOTO' : 'CARRO';
+    return this.celdas().filter((c) => c.estado === 'LIBRE' && c.tipoVehiculo === tipo);
+  }
+
+  /** HU-09: corrige la celda de una permanencia abierta sin crear otro movimiento. */
+  corregirCelda(idRegistro: number, codigoNuevo: string): Resultado<CorreccionAuditoria> {
+    const registro = this.registros().find((r) => r.id === idRegistro && !r.salida);
+    if (!registro) {
+      return { ok: false, mensaje: 'No se encontró la permanencia abierta a corregir.' };
+    }
+    const anterior = registro.celda;
+    const nueva = codigoNuevo.trim().toUpperCase();
+    if (nueva === anterior) {
+      return { ok: false, mensaje: 'La nueva celda debe ser diferente a la actual.' };
+    }
+    const destino = this.celdas().find((c) => c.codigo === nueva);
+    if (!destino) {
+      return { ok: false, mensaje: `La celda ${nueva} no existe.` };
+    }
+    const tipoActual: TipoVehiculo = anterior.startsWith('M') ? 'MOTO' : 'CARRO';
+    if (destino.tipoVehiculo !== tipoActual) {
+      return { ok: false, mensaje: `La celda ${nueva} no es compatible con el tipo del vehículo.` };
+    }
+    if (destino.estado !== 'LIBRE') {
+      return { ok: false, mensaje: `La celda ${nueva} está ocupada y no puede recibir otra permanencia.` };
+    }
+    this.registros.update((l) => l.map((r) => (r.id === idRegistro ? { ...r, celda: nueva } : r)));
+    this.cambiarEstadoCelda(anterior, 'LIBRE');
+    this.cambiarEstadoCelda(nueva, 'OCUPADA');
+    const auditoria: CorreccionAuditoria = {
+      idRegistro,
+      placa: registro.placa,
+      celdaAnterior: anterior,
+      celdaNueva: nueva,
+      operario: OPERARIO,
+      fecha: new Date(),
+    };
+    this.correcciones.update((l) => [...l, auditoria]);
+    return { ok: true, mensaje: `Celda actualizada de ${anterior} a ${nueva}.`, dato: auditoria };
   }
 }
