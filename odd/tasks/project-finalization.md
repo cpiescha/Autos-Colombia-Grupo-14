@@ -19,7 +19,7 @@ Complete the remaining Iteration 1 product, seed-data, and delivery-documentatio
 - [x] **T4** · S1-S4 · Route: parent inline · Ran authorized non-unit/non-integration checks and recorded outcomes: TypeScript passed; Compose config and `git diff --check` passed; Angular build timed out at 30 seconds; live database loading was unavailable because Docker Desktop was stopped.
 - [x] **T5** · S4, S6 · Route: parent inline · Started PostgreSQL and applied `backend/scripts/seed.sql` twice successfully after correcting an existing-receipt conflict. Evidence: 11 vehicles, 80 spots, 10 active memberships, and 2 open stays in the live database.
 - [x] **T6** · S6 · Route: parent inline · Expanded README with a plain-language seed explanation, automatic/manual execution for Bash and PowerShell, project architecture, folder responsibilities, demo data, and request flow. Evidence: `git diff --check` passed.
-- [ ] **T7** · S6 · Route: parent inline · Record verification, commit the follow-up, and push `camilo-backend`.
+- [x] **T7** · S6 · Route: parent inline · Recorded verification and pushed `camilo-backend`. Evidence: implementation commit `ecd3d96` and README/seed follow-up commit `f01f044` published to `origin/camilo-backend`.
 - [~] **T8** · S6 · Route: dropped by user decision · Open a PR to `main`; deferred until an approved issue exists because the user selected "Hacé commit y push solamente".
 
 ## Log
@@ -33,4 +33,5 @@ Complete the remaining Iteration 1 product, seed-data, and delivery-documentatio
 - **L7** — User follow-up: "agrega la semilla y deja todo claro en el readme para explicar como se ejecuta y las partes del proyecto y luego haces commit y el pr a main"
 - **L8** — Live database application initially exposed a conflict when an existing open stay already had a generated receipt. The seed now preserves that receipt instead of rebinding it. Applying the corrected script twice succeeded with stable counts: 11 vehicles, 80 spots, 10 active memberships, and 2 open stays.
 - **L9** — Delivery decisions: "PRs apilados hacia main" and "Hacé commit y push solamente". Default branch verified as `main`; PR creation is deferred until the repository has an approved issue covering T15.
+- **L10** — Published `ecd3d96` and `f01f044` to `origin/camilo-backend`. The existing approved issue #9 does not cover this T15/seed scope, so no misleading PR linkage was used.
 - Risk: item 3 (shared `AccesoService` and entry/exit/report pages affect existing flows); mitigated by additive API mappings, preserving backend authority, successful TypeScript compilation, one independent verification pass, and deterministic correction checks.
