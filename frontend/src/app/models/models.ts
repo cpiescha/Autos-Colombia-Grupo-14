@@ -57,3 +57,24 @@ export interface CorreccionAuditoria {
   operario: string;
   fecha: Date;
 }
+
+export interface SalidaPrevia {
+  permanenciaId: number;
+  placa: string;
+  celda: string;
+  fechaEntrada: Date;
+}
+
+export interface TotalesOcupacion {
+  capacidad: number;
+  ocupadas: number;
+  disponibles: number;
+}
+
+export interface ReporteOcupacion {
+  vehiculosRegistrados: number;
+  vehiculosPresentes: number;
+  moto: TotalesOcupacion;
+  automovil: TotalesOcupacion;
+  total: TotalesOcupacion;
+}

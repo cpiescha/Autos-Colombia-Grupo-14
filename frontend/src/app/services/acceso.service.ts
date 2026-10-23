@@ -7,7 +7,9 @@ import {
   ConsultaEntrada,
   CorreccionAuditoria,
   RegistroAcceso,
+  ReporteOcupacion,
   Resultado,
+  SalidaPrevia,
   TipoComprobante,
   TipoVehiculo,
   Vehiculo,
@@ -56,12 +58,23 @@ interface ApiEntradaResponse {
   fecha_entrada: string;
 }
 
-interface ApiSalidaResponse {
+interface ApiSalidaPreview {
   permanencia_id: number;
   placa: string;
   celda: string;
   fecha_entrada: string;
+}
+
+interface ApiSalidaResponse extends ApiSalidaPreview {
   fecha_salida: string;
+}
+
+interface ApiReporteOcupacion {
+  vehiculos_registrados: number;
+  vehiculos_presentes: number;
+  moto: { capacidad: number; ocupadas: number; disponibles: number };
+  automovil: { capacidad: number; ocupadas: number; disponibles: number };
+  total: { capacidad: number; ocupadas: number; disponibles: number };
 }
 
 interface ApiCorreccionResponse {
@@ -279,19 +292,35 @@ export class AccesoService {
     }
   }
 
-  async registrarSalida(placaOComprobante: string): Promise<Resultado<RegistroAcceso>> {
-    const texto = placaOComprobante.trim();
-    if (!texto) {
-      return { ok: false, mensaje: 'Escriba una placa o comprobante para registrar la salida.' };
+  async consultarSalida(comprobante: string): Promise<Resultado<SalidaPrevia>> {
+    const codigo = comprobante.trim();
+    if (!codigo) {
+      return { ok: false, mensaje: 'El comprobante es obligatorio.' };
     }
 
-    await this.cargarDatos();
+    try {
+      const res = await firstValueFrom(
+        this.http.get<ApiSalidaPreview>(`${this.baseUrl}/salidas/comprobantes/${encodeURIComponent(codigo)}`)
+      );
+      return {
+        ok: true,
+        mensaje: 'Comprobante válido.',
+        dato: {
+          permanenciaId: res.permanencia_id,
+          placa: res.placa,
+          celda: res.celda,
+          fechaEntrada: new Date(res.fecha_entrada),
+        },
+      };
+    } catch (err: any) {
+      return { ok: false, mensaje: err?.error?.message || err?.error?.detail || 'Comprobante inválido.' };
+    }
+  }
 
-    let codigoComprobante = texto;
-    const normPlaca = this.normalizar(texto);
-    const activo = this.activos().find((r) => r.placa === normPlaca);
-    if (activo && activo.comprobanteEntrada?.numero) {
-      codigoComprobante = activo.comprobanteEntrada.numero;
+  async registrarSalida(comprobante: string): Promise<Resultado<RegistroAcceso>> {
+    const codigoComprobante = comprobante.trim();
+    if (!codigoComprobante) {
+      return { ok: false, mensaje: 'El comprobante es obligatorio.' };
     }
 
     try {
@@ -326,8 +355,32 @@ export class AccesoService {
       await this.cargarDatos();
       return { ok: true, mensaje: 'Salida registrada. La celda quedó libre.', dato: cerrado };
     } catch (err: any) {
-      const mensaje = err?.error?.message || 'No fue posible registrar la salida.';
+      const mensaje = err?.error?.message || err?.error?.detail || 'No fue posible registrar la salida.';
       return { ok: false, mensaje };
+    }
+  }
+
+  async obtenerReporteOcupacion(): Promise<Resultado<ReporteOcupacion>> {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<ApiReporteOcupacion>(`${this.baseUrl}/reportes/ocupacion`)
+      );
+      return {
+        ok: true,
+        mensaje: 'Reporte actualizado.',
+        dato: {
+          vehiculosRegistrados: res.vehiculos_registrados,
+          vehiculosPresentes: res.vehiculos_presentes,
+          moto: res.moto,
+          automovil: res.automovil,
+          total: res.total,
+        },
+      };
+    } catch (err: any) {
+      return {
+        ok: false,
+        mensaje: err?.error?.message || err?.error?.detail || 'No fue posible cargar el reporte.',
+      };
     }
   }
 
