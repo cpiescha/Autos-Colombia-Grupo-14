@@ -101,9 +101,11 @@ FROM parking_stays ps
 JOIN vehicles v ON v.id = ps.vehicle_id
 WHERE v.license_plate = 'INS001'
   AND ps.exited_at IS NULL
-ON CONFLICT (code) DO UPDATE
-SET parking_stay_id = EXCLUDED.parking_stay_id,
-    used_at = NULL;
+  AND NOT EXISTS (
+      SELECT 1 FROM receipts existing
+      WHERE existing.parking_stay_id = ps.id
+  )
+ON CONFLICT (code) DO NOTHING;
 
 -- Segunda permanencia abierta para probar salida de moto con comprobante.
 INSERT INTO parking_stays (
@@ -132,6 +134,8 @@ FROM parking_stays ps
 JOIN vehicles v ON v.id = ps.vehicle_id
 WHERE v.license_plate = 'MOT303'
   AND ps.exited_at IS NULL
-ON CONFLICT (code) DO UPDATE
-SET parking_stay_id = EXCLUDED.parking_stay_id,
-    used_at = NULL;
+  AND NOT EXISTS (
+      SELECT 1 FROM receipts existing
+      WHERE existing.parking_stay_id = ps.id
+  )
+ON CONFLICT (code) DO NOTHING;
