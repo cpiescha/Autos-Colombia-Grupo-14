@@ -1,0 +1,63 @@
+:host { display: block; }
+ 
+h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; color: #111; }
+.ayuda { margin: 0 0 20px; color: #555; font-size: 14px; }
+ 
+/* ---- Estilos de la pantalla Entrada (mockups de Paul) ---- */
+.etiqueta { display: block; margin: 0 0 4px; font-size: 12px; color: #555; }
+.entrada-texto {
+  display: block; width: 100%; box-sizing: border-box; height: 44px; padding: 0 14px;
+  font-size: 16px; color: #111; background: #fff; border: 1px solid #c4c9d0; border-radius: 4px;
+  margin-bottom: 16px;
+}
+.entrada-texto:focus-visible { outline: 2px solid #1565c0; outline-offset: 0; border-color: #1565c0; }
+ 
+.btn {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 20px; border: 0; border-radius: 18px;
+  background: #1565c0; color: #fff; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+}
+.btn:hover { background: #0d47a1; }
+.btn:focus-visible { outline: 2px solid #0d47a1; outline-offset: 2px; }
+.btn-claro { background: #e3f2fd; color: #1565c0; }
+.btn-claro:hover { background: #d0e7fb; }
+.btn:disabled, .btn:disabled:hover { background: #d5dbe1; color: #7b8794; cursor: not-allowed; }
+ 
+.bloque { margin-bottom: 16px; }
+ 
+.tarjeta-info {
+  background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;
+}
+.tarjeta-info h2 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: #111; }
+.tarjeta-info p { margin: 4px 0; font-size: 14px; color: #555; }
+ 
+.alerta { padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; font-size: 14px; }
+.alerta-error { background: #fdeaea; color: #b3261e; }
+.alerta-info { background: #e3f2fd; color: #0d47a1; }
+.alerta-ok { background: #e6f4ea; color: #1b5e20; }
+.alerta-aviso { background: #fff0d9; color: #9a5b00; }
+ 
+/* ---- Estilos que usan Salida y Ocupación (se rehacen en etapas siguientes) ---- */
+.tarjeta { margin-bottom: 16px; }
+.fila { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.campo { width: 260px; }
+.panel { background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 16px; margin-bottom: 12px; display: grid; gap: 4px; }
+.aviso { padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; }
+.aviso-info { background: #e3f2fd; color: #0d47a1; }
+.aviso-error { background: #fdecea; color: #8c1d18; }
+.aviso-ok { background: #e6f4ea; color: #1b5e20; }
+.error { color: #b3261e; margin: 0; }
+.datos { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin: 12px 0; }
+.datos dt { color: #5f6b7a; }
+.datos dd { margin: 0; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.estado { padding: 4px 12px; border-radius: 14px; font-size: 13px; background: #e4e7eb; color: #323f4b; }
+.estado.ok { background: #d6f0dc; color: #1b5e2f; }
+.estado.mal { background: #fbdcd9; color: #8c1d18; }
+.estado.dentro { background: #fff1c2; color: #6b4e00; }
+.comprobante { border: 2px dashed #9aa5b1; border-radius: 8px; padding: 16px; background: #fff; }
+.comprobante h2 { margin: 0 0 8px; font-size: 18px; font-weight: 500; }
+.celda-grande { display: inline-block; font-size: 28px; font-weight: 500; background: #0d47a1; color: #fff; padding: 4px 16px; border-radius: 6px; margin: 4px 0 8px; }
+button[mat-flat-button] {
+  --mat-button-filled-container-color: #1565c0;
+  --mat-button-filled-label-text-color: #fff;
+}
