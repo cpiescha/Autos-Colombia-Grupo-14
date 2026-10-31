@@ -5,6 +5,7 @@ from app.models.operator import Operator
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_stay import ParkingStay
 from app.models.receipt import Receipt
+from app.models.user_account import UserAccount
 from app.models.vehicle import Vehicle
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "ParkingSpot",
     "ParkingStay",
     "Receipt",
+    "UserAccount",
     "Vehicle",
 ]

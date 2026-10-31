@@ -10,3 +10,8 @@ class VehicleType(str, enum.Enum):
 class SpotCategory(str, enum.Enum):
     MOTO = "MOTO"
     AUTOMOVIL = "AUTOMOVIL"
+
+
+class AccountRole(str, enum.Enum):
+    ADMINISTRADOR = "ADMINISTRADOR"
+    OPERADOR = "OPERADOR"
