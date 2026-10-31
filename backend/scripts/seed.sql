@@ -14,10 +14,45 @@ ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO operators (name)
 SELECT name
-FROM (VALUES ('Operario Diurno 1'), ('Operario Diurno 2')) AS seed(name)
+FROM (
+    VALUES
+        ('Operario Diurno 1'),
+        ('Operario Diurno 2'),
+        ('Administrador Parqueadero')
+) AS seed(name)
 WHERE NOT EXISTS (
     SELECT 1 FROM operators o WHERE o.name = seed.name
 );
+
+-- Cuentas de demostración (T17). La contraseña no se guarda en texto plano.
+-- admin     / Admin2026
+-- operario1 / Operario2026
+-- operario2 / Operario2026
+INSERT INTO user_accounts (operator_id, username, password_hash, role)
+SELECT o.id, seed.username, seed.password_hash, seed.role::account_role
+FROM (
+    VALUES
+        (
+            'Administrador Parqueadero',
+            'admin',
+            '$2b$12$4lMJXy0QLFfIfSi7Fe197e2XMrGSEqsN7RUpZHiYoeWVJkx7mYJCC',
+            'ADMINISTRADOR'
+        ),
+        (
+            'Operario Diurno 1',
+            'operario1',
+            '$2b$12$mDJesC5e95PWwluP4SPjhOoj5yN3n1nOOqaeC4bp.97GKLkOPu4Fe',
+            'OPERADOR'
+        ),
+        (
+            'Operario Diurno 2',
+            'operario2',
+            '$2b$12$mDJesC5e95PWwluP4SPjhOoj5yN3n1nOOqaeC4bp.97GKLkOPu4Fe',
+            'OPERADOR'
+        )
+) AS seed(operator_name, username, password_hash, role)
+JOIN operators o ON o.name = seed.operator_name
+ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO clients (name)
 SELECT name
