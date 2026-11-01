@@ -47,3 +47,12 @@ export interface Resultado<T> {
   mensaje: string;
   dato?: T;
 }
+
+export interface CorreccionAuditoria {
+  idRegistro: number;
+  placa: string;
+  celdaAnterior: string;
+  celdaNueva: string;
+  operario: string;
+  fecha: Date;
+}

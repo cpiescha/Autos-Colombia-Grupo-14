@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -20,6 +20,15 @@ class ParkingStay(Base):
             "parking_spot_id",
             unique=True,
             postgresql_where=text("exited_at IS NULL"),
+        ),
+        CheckConstraint(
+            "(exited_at IS NULL AND exit_operator_id IS NULL)"
+            " OR (exited_at IS NOT NULL AND exit_operator_id IS NOT NULL)",
+            name="ck_stay_exit_pair",
+        ),
+        CheckConstraint(
+            "exited_at IS NULL OR exited_at >= entered_at",
+            name="ck_stay_exit_after_entry",
         ),
     )
 
