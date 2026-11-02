@@ -11,8 +11,8 @@ Finish and publish the Iteration 2 persistence foundation on `camilo-backend`. K
 
 ## Tasks
 
-- [x] **T1** · S2 · Route: parent inline · Audited the existing T17/T18 persistence changes and preserved a reproducible RED baseline. Evidence: clean `9e44dc7` collection failed with circular `app.models` ↔ `app.db.operations` import, exit 2. Commit: tracking evidence will close with T2.
-- [x] **T2** · S2 · Route: parent inline · Completed model/import compatibility, migration workflow, and focused persistence tests. Evidence: 4 focused tests, 60-test backend suite, and two-pass PostgreSQL migration verification passed. Commit: pending.
+- [x] **T1** · S2 · Route: parent inline · Audited the existing T17/T18 persistence changes and preserved a reproducible RED baseline. Evidence: clean `9e44dc7` collection failed with circular `app.models` ↔ `app.db.operations` import, exit 2. Commit: `2c6681f`.
+- [x] **T2** · S2 · Route: parent inline · Completed model/import compatibility, migration workflow, and focused persistence tests. Evidence: 4 focused tests, 60-test backend suite, and two-pass PostgreSQL migration verification passed. Commit: `2c6681f`.
 - [ ] **T3** · S1, S3 · Route: parent inline · Package the synchronized Iteration 2 documentation and branch integration into reviewable commits, verify, and push `camilo-backend`. Commit: pending.
 - [ ] **T4** · S1, S4 · Route: parent inline · Confirm the remote branch state, record deferred work, and provide the implementation summary. Commit: pending.
 
@@ -25,3 +25,4 @@ Finish and publish the Iteration 2 persistence foundation on `camilo-backend`. K
 - **L5** — RED reproduced from the clean merge commit: `.venv/Scripts/python.exe -m pytest -q tests/test_iteration2_persistence_model.py` exited 2 during collection because `app.db.__init__` eagerly imported operations while models were only partially initialized. Docker Engine 29.2.1 is available for PostgreSQL migration verification.
 - **L6** — GREEN: database operations now load lazily from `app.db`, PostgreSQL-only regex constraints no longer break SQLite metadata creation, and focused tests pin both behaviors. `pytest -q tests/test_iteration2_persistence_model.py` passed 4 tests; the complete backend suite passed 60 tests with one dependency deprecation warning.
 - **L7** — PostgreSQL 16 migration proof started from `origin/main` schema, applied T17 + T18 + seed twice in single transactions, and produced 3 accounts, 80 active spots, and all 4 triggers. Plaintext passwords, occupied-spot deactivation, and deletion of a historical spot were all rejected.
+- **L8** — Work-unit boundary: `2c6681f` contains the complete T17/T18 persistence hardening with tests and migration instructions. The three linked architecture/PRD source documents form one documentation work unit; together they exceed the nominal 400-line review budget because they are pre-existing complete academic source documents required by the tracked links, not a code behavior slice.
