@@ -52,6 +52,10 @@ FROM (
         )
 ) AS seed(operator_name, username, password_hash, role)
 JOIN operators o ON o.name = seed.operator_name
+WHERE NOT EXISTS (
+    SELECT 1 FROM user_accounts ua
+    WHERE ua.operator_id = o.id
+)
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO clients (name)

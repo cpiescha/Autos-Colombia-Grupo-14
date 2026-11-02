@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlalchemy import CheckConstraint, create_engine
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.schema import CreateTable
@@ -48,6 +50,14 @@ def test_iteration2_models_create_on_sqlite_without_import_cycles() -> None:
     assert callable(close_stay_by_receipt)
     assert callable(correct_parking_spot)
     assert {"user_accounts", "parking_spots"}.issubset(Base.metadata.tables)
+
+
+def test_seed_does_not_create_a_second_account_for_an_existing_operator() -> None:
+    seed_sql = (Path(__file__).parents[1] / "scripts" / "seed.sql").read_text(
+        encoding="utf-8"
+    )
+
+    assert "WHERE NOT EXISTS (\n    SELECT 1 FROM user_accounts ua\n    WHERE ua.operator_id = o.id\n)" in seed_sql
 
 
 def test_parking_spot_keeps_code_type_and_active_state() -> None:
