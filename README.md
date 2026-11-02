@@ -81,22 +81,37 @@ PostgreSQL ejecuta primero `backend/scripts/schema.sql` para crear las tablas y 
 
 ### Base ya creada
 
-Si el volumen `postgres_data` ya existe, Docker no vuelve a ejecutar los scripts iniciales. Aplicar la semilla manualmente según la terminal:
+Si el volumen `postgres_data` ya existe, Docker no vuelve a ejecutar los scripts iniciales. Para incorporar las cuentas internas y las celdas administrables sin borrar los datos actuales, ejecutar en este orden `t17_user_accounts.sql`, `t18_parking_spots.sql` y `seed.sql` dentro de una sola transacción.
 
 **Git Bash, Linux o macOS**
 
 ```bash
-docker compose exec -T db psql -U autos_colombia -d autos_colombia < backend/scripts/seed.sql
+cat backend/scripts/t17_user_accounts.sql \
+    backend/scripts/t18_parking_spots.sql \
+    backend/scripts/seed.sql |
+  docker compose exec -T db psql \
+    -v ON_ERROR_STOP=1 \
+    --single-transaction \
+    -U autos_colombia \
+    -d autos_colombia
 ```
 
 **PowerShell**
 
 ```powershell
-Get-Content backend/scripts/seed.sql -Raw |
-  docker compose exec -T db psql -U autos_colombia -d autos_colombia
+Get-Content -Raw @(
+  "backend/scripts/t17_user_accounts.sql"
+  "backend/scripts/t18_parking_spots.sql"
+  "backend/scripts/seed.sql"
+) |
+  docker compose exec -T db psql `
+    -v ON_ERROR_STOP=1 `
+    --single-transaction `
+    -U autos_colombia `
+    -d autos_colombia
 ```
 
-El script es repetible: conserva los movimientos y comprobantes existentes, no duplica los catálogos principales y no recrea una permanencia de demostración que ya fue cerrada. Para restaurar exactamente los dos casos de salida iniciales se debe reiniciar voluntariamente el volumen con `docker compose down -v` y volver a levantar el entorno.
+Los scripts de migración y semilla son repetibles. La opción `ON_ERROR_STOP` junto con `--single-transaction` evita conservar una actualización parcial si alguno falla. Los movimientos y comprobantes existentes se mantienen. Para restaurar exactamente los casos iniciales se debe reiniciar voluntariamente el volumen con `docker compose down -v` y volver a levantar el entorno.
 
 ### Datos disponibles
 

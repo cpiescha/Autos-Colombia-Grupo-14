@@ -15,11 +15,11 @@ class UserAccount(Base):
         CheckConstraint(
             r"password_hash ~ '^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'",
             name="ck_password_is_hash",
-        ),
+        ).ddl_if(dialect="postgresql"),
         CheckConstraint(
             "username = lower(username) AND username ~ '^[a-z][a-z0-9._]{2,59}$'",
             name="ck_username_normalized",
-        ),
+        ).ddl_if(dialect="postgresql"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
