@@ -27,6 +27,16 @@ No es necesario instalar Angular, Python ni PostgreSQL en el equipo anfitrión.
 
 3. Mantener los valores de desarrollo o reemplazarlos por valores locales no sensibles. El archivo `.env` no se versiona.
 
+Para la autenticación de la Iteración 2 se admiten estas variables:
+
+| Variable | Uso | Valor de desarrollo |
+|---|---|---|
+| `AUTH_SECRET` | Firma los tokens de acceso; debe tener al menos 32 caracteres | Obligatorio; sin valor predeterminado |
+| `AUTH_TTL_MINUTES` | Duración del token en minutos | `60` |
+| `AUTH_ALGORITHM` | Algoritmo JWT permitido | `HS256` |
+
+Antes de iniciar Compose, definir en el archivo local `.env` un `AUTH_SECRET` aleatorio de al menos 32 caracteres. Compose se detiene si falta esta variable; el secreto no se versiona ni tiene un valor público predeterminado.
+
 ## Iniciar el entorno
 
 ```bash
@@ -39,6 +49,14 @@ Servicios disponibles:
 - Backend: <http://localhost:8080>
 - Salud del backend: <http://localhost:8080/api/health>
 - Documentación de la API: <http://localhost:8080/docs>
+
+T19 expone los endpoints de autenticación:
+
+- `POST /api/auth/login`: valida usuario y contraseña y devuelve un token Bearer.
+- `GET /api/auth/me`: devuelve la cuenta activa asociada al token.
+- `POST /api/auth/logout`: valida la sesión; el frontend elimina el token local.
+
+El backend vuelve a consultar la cuenta en cada solicitud autenticada, por lo que una cuenta anulada deja de operar aunque conserve un token no vencido.
 
 El backend usa `8080` en el equipo anfitrión porque está disponible en el entorno de desarrollo. Dentro de Docker conserva el puerto `8000`, por lo que la comunicación interna sigue usando `backend:8000`.
 
@@ -135,11 +153,11 @@ En una base que ya tenía movimientos, consultar **Vehículos presentes** para u
 
 El registro guiado y los datos esperados están en [`docs/VERIFICACION_MANUAL_ITERACION_1.md`](docs/VERIFICACION_MANUAL_ITERACION_1.md).
 
-## Verificaciones automatizadas (pendientes)
+## Verificaciones automatizadas
 
-El proyecto conserva las pruebas en `backend/tests/`, pero las pruebas unitarias, de integración y la prueba concurrente T13 se ejecutarán en una etapa posterior según la decisión del equipo. No se declara T13 verificada hasta probar dos ingresos simultáneos contra PostgreSQL.
+La suite de `backend/tests/` cubre los flujos de la Iteración 1, la persistencia T17/T18 y la autenticación T19. La prueba concurrente T13 continúa pendiente: no se declara verificada hasta probar dos ingresos simultáneos contra PostgreSQL.
 
-Cuando corresponda ejecutarlas:
+Para ejecutar la suite:
 
 ```bash
 cd backend
