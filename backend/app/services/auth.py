@@ -18,6 +18,20 @@ class AuthenticationError(Exception):
         self.message = message
 
 
+class AuthorizationError(Exception):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+def forbidden_error() -> AuthorizationError:
+    return AuthorizationError(
+        "FORBIDDEN",
+        "No tiene permisos para realizar esta acción.",
+    )
+
+
 def invalid_credentials_error() -> AuthenticationError:
     return AuthenticationError(
         "INVALID_CREDENTIALS",

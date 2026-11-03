@@ -58,6 +58,14 @@ T19 expone los endpoints de autenticación:
 
 El backend vuelve a consultar la cuenta en cada solicitud autenticada, por lo que una cuenta anulada deja de operar aunque conserve un token no vencido.
 
+T20 agrega la administración de cuentas internas. Los tres endpoints requieren `Authorization: Bearer <token>` y el perfil `ADMINISTRADOR`:
+
+- `GET /api/operadores`: lista únicamente cuentas con rol `OPERADOR` y sus nombres, sin exponer contraseñas ni hashes.
+- `POST /api/operadores`: crea una cuenta activa con rol `OPERADOR`. El cuerpo usa `nombre`, `usuario` y `clave`; la clave debe tener entre 8 y 72 bytes y se almacena con bcrypt.
+- `PATCH /api/operadores/{id}/estado`: recibe `{"estado":"ACTIVA"}` o `{"estado":"ANULADA"}`. La anulación conserva las filas y el historial relacionado.
+
+Una solicitud sin sesión recibe `401 INVALID_SESSION`; un operador autenticado recibe `403 FORBIDDEN`; un nombre de usuario repetido recibe `409 USERNAME_EXISTS` sin crear un operador parcial. La ruta de estado no permite modificar cuentas administrativas. El alta normaliza el usuario a minúsculas y admite letras, números, punto y guion bajo después de una letra inicial.
+
 El backend usa `8080` en el equipo anfitrión porque está disponible en el entorno de desarrollo. Dentro de Docker conserva el puerto `8000`, por lo que la comunicación interna sigue usando `backend:8000`.
 
 En el primer inicio, PostgreSQL ejecuta automáticamente `backend/scripts/schema.sql` y `backend/scripts/seed.sql`. Esto crea el esquema y carga las 80 celdas y los datos de prueba. Los scripts de inicialización solo se ejecutan cuando el volumen de PostgreSQL está vacío.
