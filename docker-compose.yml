@@ -25,6 +25,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-autos_colombia}
       POSTGRES_USER: ${POSTGRES_USER:-autos_colombia}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autos_colombia_dev}
+      AUTH_SECRET: ${AUTH_SECRET:?Define AUTH_SECRET with at least 32 characters}
+      AUTH_TTL_MINUTES: ${AUTH_TTL_MINUTES:-60}
+      AUTH_ALGORITHM: ${AUTH_ALGORITHM:-HS256}
     ports:
       - "${BACKEND_PORT:-8080}:8000"
     depends_on:

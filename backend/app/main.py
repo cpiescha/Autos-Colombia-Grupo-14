@@ -4,11 +4,13 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.auth import router as auth_router
 from app.api.corrections import router as corrections_router
 from app.api.entries import router as entries_router
 from app.api.exits import router as exits_router
 from app.api.occupancy import router as occupancy_router
 from app.api.vehicles import router as vehicles_router
+from app.services.auth import AuthenticationError
 
 app = FastAPI(
     title="Autos Colombia API",
@@ -21,6 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth_router)
 app.include_router(vehicles_router)
 app.include_router(entries_router)
 app.include_router(exits_router)
@@ -28,10 +31,35 @@ app.include_router(occupancy_router)
 app.include_router(corrections_router)
 
 
+@app.exception_handler(AuthenticationError)
+async def authentication_error_handler(
+    request: Request, error: AuthenticationError
+) -> JSONResponse:
+    del request
+    return JSONResponse(
+        status_code=401,
+        content={
+            "code": error.code,
+            "message": error.message,
+            "details": None,
+        },
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def entry_validation_error_handler(
     request: Request, error: RequestValidationError
 ) -> JSONResponse:
+    if request.url.path == "/api/auth/login":
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "INVALID_AUTH_DATA",
+                "message": "Los datos de autenticación no son válidos.",
+                "details": None,
+            },
+        )
     if request.url.path == "/api/entradas":
         return JSONResponse(
             status_code=422,
