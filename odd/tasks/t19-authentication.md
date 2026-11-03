@@ -13,10 +13,10 @@ Implement the Iteration 2 authentication boundary on `feat/i2-t19-authentication
 
 ## Tasks
 
-- [x] **T1** · S2-S6 · Route: parent inline · Added behavior-first authentication tests and observed RED. Evidence: six tests failed against missing `/api/auth/*` routes with `404`. Commit: T19 feature commit.
-- [x] **T2** · S2-S6 · Route: parent inline · Implemented password verification, signed access tokens, current-account resolution, and `/api/auth/*`. Evidence: eight focused tests pass after security hardening. Commit: T19 feature commit.
-- [x] **T3** · S2-S6 · Route: parent inline · Added bcrypt/PyJWT, authentication environment configuration, Compose wiring, and runtime documentation. Evidence: dependency installation and explicit-secret Compose validation pass. Commit: T19 feature commit.
-- [x] **T4** · S1-S6 · Route: independent verifier for security risk · Completed focused, regression, Docker/PostgreSQL, configuration, and independent security verification; corrected the verifier's high finding. Commit: T19 feature commit.
+- [x] **T1** · S2-S6 · Route: parent inline · Added behavior-first authentication tests and observed RED. Evidence: six tests failed against missing `/api/auth/*` routes with `404`. Commit: `6af4dcd`.
+- [x] **T2** · S2-S6 · Route: parent inline · Implemented password verification, signed access tokens, current-account resolution, and `/api/auth/*`. Evidence: eight focused tests pass after security hardening. Commit: `6af4dcd`.
+- [x] **T3** · S2-S6 · Route: parent inline · Added bcrypt/PyJWT, authentication environment configuration, Compose wiring, and runtime documentation. Evidence: dependency installation and explicit-secret Compose validation pass. Commit: `6af4dcd`.
+- [x] **T4** · S1-S6 · Route: independent verifier for security risk · Completed focused, regression, Docker/PostgreSQL, configuration, and independent security verification; corrected the verifier's high finding. Commit: `6af4dcd`.
 
 ## Log
 
@@ -32,4 +32,5 @@ Implement the Iteration 2 authentication boundary on `feat/i2-t19-authentication
 - **L10** — Independent security verification found the public Compose fallback for `AUTH_SECRET` unsafe for shared deployment. Added a RED/GREEN regression check, removed the fallback, made Compose fail when `AUTH_SECRET` is absent, and updated README setup instructions. Focused authentication tests now pass 8/8.
 - **L11** — Final verification: complete backend suite passed 69/69 with one Starlette/anyio deprecation warning; Compose accepts an explicit 32+ character secret and rejects a missing secret; `git diff --check`, `pip check`, compileall, static response/claim checks, and isolated Docker/PostgreSQL login + `/me` passed.
 - **L12** — Review workload: the cohesive authentication boundary is approximately 500 authored lines including 235 lines of behavior-first tests and the ODD evidence. It remains one security work unit because splitting tests, token validation, endpoints, and configuration would produce commits that are not independently safe or executable.
+- **L13** — Native review was due for the exact committed range `f9cb4fec9838b32ef708b8eeca3c411613310699..6af4dcd`, but START failed before lineage creation in the provider candidate-view `git worktree` step. No native verdict or authority was created; the independent security verifier and functional checks remain the available proof.
 - **Risk:** item 2 (authentication, credentials, signed tokens, and identity boundary) and item 5 (new runtime dependencies/configuration). Mitigation: fail-closed secret configuration, HS256 allowlist, required JWT claims, database account reload, RED/GREEN tests, full regression suite, isolated PostgreSQL runtime check, and one independent security verification pass.
