@@ -10,6 +10,7 @@ Implement the Iteration 2 authentication boundary on `feat/i2-t19-authentication
 4. **S4** — “`POST /api/auth/login` valida la contraseña y devuelve un token firmado de duración limitada.”
 5. **S5** — “El token identifica la cuenta, pero FastAPI vuelve a consultar que siga activa antes de autorizar la operación.”
 6. **S6** — “No se implementan refresh tokens, recuperación por correo ni OAuth en esta entrega.”
+7. **S7** — “te dije que subieras todo directamente a camilo-backend”
 
 ## Tasks
 
@@ -17,6 +18,7 @@ Implement the Iteration 2 authentication boundary on `feat/i2-t19-authentication
 - [x] **T2** · S2-S6 · Route: parent inline · Implemented password verification, signed access tokens, current-account resolution, and `/api/auth/*`. Evidence: eight focused tests pass after security hardening. Commit: `6af4dcd`.
 - [x] **T3** · S2-S6 · Route: parent inline · Added bcrypt/PyJWT, authentication environment configuration, Compose wiring, and runtime documentation. Evidence: dependency installation and explicit-secret Compose validation pass. Commit: `6af4dcd`.
 - [x] **T4** · S1-S6 · Route: independent verifier for security risk · Completed focused, regression, Docker/PostgreSQL, configuration, and independent security verification; corrected the verifier's high finding. Commit: `6af4dcd`.
+- [ ] **T5** · S7 · Route: parent inline · Merge the verified T19 work directly into `camilo-backend`, push it, and confirm the remote revision. Commit: pending.
 
 ## Log
 
@@ -33,4 +35,5 @@ Implement the Iteration 2 authentication boundary on `feat/i2-t19-authentication
 - **L11** — Final verification: complete backend suite passed 69/69 with one Starlette/anyio deprecation warning; Compose accepts an explicit 32+ character secret and rejects a missing secret; `git diff --check`, `pip check`, compileall, static response/claim checks, and isolated Docker/PostgreSQL login + `/me` passed.
 - **L12** — Review workload: the cohesive authentication boundary is approximately 500 authored lines including 235 lines of behavior-first tests and the ODD evidence. It remains one security work unit because splitting tests, token validation, endpoints, and configuration would produce commits that are not independently safe or executable.
 - **L13** — Native review was due for the exact committed range `f9cb4fec9838b32ef708b8eeca3c411613310699..6af4dcd`, but START failed before lineage creation in the provider candidate-view `git worktree` step. No native verdict or authority was created; the independent security verifier and functional checks remain the available proof.
+- **L14** — User correction (verbatim): "te dije que subieras todo directamente a camilo-backend". The prior close incorrectly treated publication as undecided; T5 is reopened to merge and publish the already verified work directly to the integration branch.
 - **Risk:** item 2 (authentication, credentials, signed tokens, and identity boundary) and item 5 (new runtime dependencies/configuration). Mitigation: fail-closed secret configuration, HS256 allowlist, required JWT claims, database account reload, RED/GREEN tests, full regression suite, isolated PostgreSQL runtime check, and one independent security verification pass.
