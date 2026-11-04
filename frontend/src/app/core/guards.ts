@@ -4,22 +4,26 @@ import { AuthService } from './auth.service';
 import { Rol } from '../models/auth.model';
 
 // Solo entra quien tiene sesión
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
-  return auth.autenticado() ? true : inject(Router).createUrlTree(['/login']);
+  const router = inject(Router);
+  return await auth.restaurar() ? true : router.createUrlTree(['/login']);
 };
 
 // Si ya hay sesión, no deja volver al login
-export const loginGuard: CanActivateFn = () => {
+export const loginGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
-  return auth.autenticado() ? inject(Router).createUrlTree([auth.rutaInicial()]) : true;
+  const router = inject(Router);
+  return await auth.restaurar() ? router.createUrlTree([auth.rutaInicial()]) : true;
 };
 
 // Revisa data.roles de la ruta
-export const rolGuard: CanActivateFn = (route) => {
+export const rolGuard: CanActivateFn = async (route) => {
   const auth = inject(AuthService);
+  const router = inject(Router);
+  if (!await auth.restaurar()) return router.createUrlTree(['/login']);
   const roles = route.data['roles'] as Rol[] | undefined;
   const rol = auth.rol();
   if (!roles || (rol && roles.includes(rol))) return true;
-  return inject(Router).createUrlTree(['/acceso-denegado']);
+  return router.createUrlTree(['/acceso-denegado']);
 };

@@ -32,6 +32,8 @@ class VehicleLookupResponse(BaseModel):
     marca: str
     modelo: str
     color: str
+    cliente_id: int
+    activo: bool
     estado_mensualidad: Literal["vigente", "vencida"]
     authorized: bool
     rejection_reason: str | None

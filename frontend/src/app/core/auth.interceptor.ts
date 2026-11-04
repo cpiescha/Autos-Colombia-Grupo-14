@@ -5,13 +5,18 @@ import { AuthService } from './auth.service';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
-  const token = auth.sesion()?.token;
-  const peticion = token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
+  const api = req.url.startsWith('/api/');
+  const login = req.url === '/api/auth/login';
+  const token = api && !login ? auth.token() : null;
+  const peticion = token && !req.headers.has('Authorization')
+    ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
 
   return next(peticion).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401) auth.logout(); // sesión vencida o inválida
-      // El 403 y los mensajes visuales los maneja T25
+      // Do not recursively call logout, or let an old request invalidate a new session.
+      if (error.status === 401 && api && !login && token && token === auth.token()) {
+        auth.invalidar(true, 'La sesión no es válida o venció. Inicie sesión nuevamente.');
+      }
       return throwError(() => error);
     })
   );

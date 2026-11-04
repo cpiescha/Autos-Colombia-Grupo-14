@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -31,8 +32,8 @@ import { AuthService } from '../../core/auth.service';
         }
 
         <div class="acciones">
-          <button class="boton" type="submit">
-            <span class="material-symbols-outlined">login</span> Ingresar
+          <button class="boton" type="submit" [disabled]="cargando()" [attr.aria-busy]="cargando()">
+            <span class="material-symbols-outlined">login</span> {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
           </button>
           <button class="enlace" type="button" (click)="ayuda.set(!ayuda())">¿Necesita ayuda?</button>
         </div>
@@ -70,21 +71,33 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  error = signal('');
+  cargando = signal(false);
+  error = signal(this.auth.consumirAvisoLogin());
   ayuda = signal(false);
   form = this.fb.group({
     usuario: ['', Validators.required],
     clave: ['', Validators.required],
   });
 
-  entrar() {
+  async entrar() {
+    if (this.cargando()) return;
     this.error.set('');
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const { usuario, clave } = this.form.getRawValue();
-    const resultado = this.auth.login(usuario, clave);
-
-    if (resultado === 'OK') this.router.navigate([this.auth.rutaInicial()]);
-    else if (resultado === 'ANULADA') this.error.set('Su cuenta está anulada y no puede acceder. Contacte al administrador.');
-    else this.error.set('Usuario o contraseña incorrectos.');
+    this.cargando.set(true);
+    try {
+      if (await this.auth.login(usuario, clave)) await this.router.navigate([this.auth.rutaInicial()]);
+      else this.error.set('La sesión fue cancelada. Intente nuevamente.');
+    } catch (error) {
+      const status = error instanceof HttpErrorResponse ? error.status : 0;
+      const code = error instanceof HttpErrorResponse ? error.error?.code : null;
+      this.error.set(code === 'ACCOUNT_INACTIVE' ? 'Su cuenta está anulada y no puede acceder. Contacte al administrador.'
+        : status === 401 ? 'Usuario o contraseña incorrectos.'
+        : status === 403 ? 'Su cuenta no tiene acceso. Contacte al administrador.'
+        : status === 422 ? 'Revise el usuario y la contraseña ingresados.'
+        : 'No fue posible iniciar sesión. Intente nuevamente.');
+    } finally {
+      this.cargando.set(false);
+    }
   }
 }

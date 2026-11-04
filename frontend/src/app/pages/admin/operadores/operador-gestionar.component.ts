@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { OperadoresService } from '../../../services/operadores.service';
 
 @Component({
@@ -8,6 +8,9 @@ import { OperadoresService } from '../../../services/operadores.service';
   standalone: true,
   imports: [RouterLink, DatePipe],
   template: `
+    @if (svc.pendiente()) { <p role="status">Procesando cuenta…</p> }
+    @if (svc.error()) { <div class="aviso-error" role="alert">{{ svc.error() }}</div> }
+    @if (!svc.pendiente() && !cuenta()) { <p>Cuenta no disponible.</p><a routerLink="/operadores">Volver a operadores</a> }
     @if (cuenta(); as c) {
       <h1>Gestionar cuenta</h1>
       <p class="sub">Una cuenta no se elimina: se anula y puede reactivarse después.</p>
@@ -31,25 +34,24 @@ import { OperadoresService } from '../../../services/operadores.service';
           <dt>Nombre</dt><dd>{{ c.nombre }}</dd>
           <dt>Usuario</dt><dd>{{ c.usuario }}</dd>
           <dt>Perfil</dt><dd>{{ c.rol }}</dd>
-          <dt>Turno</dt><dd>{{ c.turno }}</dd>
           <dt>Estado actual</dt>
           <dd><span class="chip" [class.ok]="c.estado === 'ACTIVA'" [class.bad]="c.estado === 'ANULADA'">{{ c.estado }}</span></dd>
-          <dt>Último acceso</dt>
-          <dd>{{ c.ultimoAcceso ? (c.ultimoAcceso | date: 'dd/MM/yyyy HH:mm') : 'Nunca' }}</dd>
+          <dt>Actualización</dt>
+          <dd>{{ c.actualizado_en | date: 'dd/MM/yyyy HH:mm' }}</dd>
         </dl>
         <div class="auditoria">
           <strong>Registro de auditoría</strong><br />
-          Creada por {{ c.creadoPor }} · {{ c.creadoEn | date: 'dd/MM/yyyy HH:mm' }} · Operador #{{ codigo }}
+          Creada el {{ c.creado_en | date: 'dd/MM/yyyy HH:mm' }} · Operador #{{ codigo }}
         </div>
       </div>
 
       <div class="acciones-fila">
         @if (c.estado === 'ACTIVA') {
-          <button class="boton peligro" (click)="cambiar()">
+          <button class="boton peligro" (click)="cambiar()" [disabled]="svc.pendiente() || c.rol !== 'OPERADOR'">
             <span class="material-symbols-outlined">block</span> Anular cuenta
           </button>
         } @else {
-          <button class="boton" (click)="cambiar()">
+          <button class="boton" (click)="cambiar()" [disabled]="svc.pendiente() || c.rol !== 'OPERADOR'">
             <span class="material-symbols-outlined">check_circle</span> Reactivar cuenta
           </button>
         }
@@ -59,29 +61,22 @@ import { OperadoresService } from '../../../services/operadores.service';
   `,
 })
 export class OperadorGestionarComponent {
-  private svc = inject(OperadoresService);
-  private router = inject(Router);
+  svc = inject(OperadoresService);
   private id = Number(inject(ActivatedRoute).snapshot.paramMap.get('id'));
 
   cuenta = computed(() => this.svc.obtener(this.id));
   codigo = this.svc.codigo(this.id);
   mensaje = signal('');
 
-  constructor() {
-    const c = this.svc.obtener(this.id);
-    // El administrador no puede gestionarse a sí mismo ni a otro administrador
-    if (!c || c.rol !== 'OPERADOR') this.router.navigate(['/operadores']);
-  }
+  constructor() { void this.svc.cargar(); }
 
-  cambiar() {
+  async cambiar() {
     const c = this.cuenta();
-    if (!c) return;
-    if (c.estado === 'ACTIVA') {
-      this.svc.cambiarEstado(c.id, 'ANULADA');
-      this.mensaje.set('Cuenta anulada. El operador ya no puede iniciar sesión.');
-    } else {
-      this.svc.cambiarEstado(c.id, 'ACTIVA');
-      this.mensaje.set('Cuenta reactivada. El operador puede iniciar sesión de nuevo.');
-    }
+    if (!c || c.rol !== 'OPERADOR' || this.svc.pendiente()) return;
+    this.mensaje.set('');
+    const actualizada = await this.svc.cambiarEstado(c.id, c.estado === 'ACTIVA' ? 'ANULADA' : 'ACTIVA');
+    if (actualizada) this.mensaje.set(actualizada.estado === 'ANULADA'
+      ? 'Cuenta anulada. El operador ya no puede iniciar sesión.'
+      : 'Cuenta reactivada. El operador puede iniciar sesión de nuevo.');
   }
 }

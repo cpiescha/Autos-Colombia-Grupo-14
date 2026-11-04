@@ -5,6 +5,7 @@ import { AccesoDenegadoComponent } from './pages/acceso-denegado/acceso-denegado
 import { CeldaCrearComponent } from './pages/admin/celdas/celda-crear.component';
 import { CeldaInactivarComponent } from './pages/admin/celdas/celda-inactivar.component';
 import { CeldasComponent } from './pages/admin/celdas/celdas.component';
+import { CorreccionComponent } from './pages/correccion/correccion.component';
 import { OperadorCreadoComponent } from './pages/admin/operadores/operador-creado.component';
 import { OperadorCrearComponent } from './pages/admin/operadores/operador-crear.component';
 import { OperadorGestionarComponent } from './pages/admin/operadores/operador-gestionar.component';
@@ -16,6 +17,8 @@ import { OcupacionComponent } from './pages/ocupacion/ocupacion.component';
 import { PresentesComponent } from './pages/presentes/presentes.component';
 import { ReportesComponent } from './pages/reportes/reportes.component';
 import { SalidaComponent } from './pages/salida/salida.component';
+import { VehiculoCrearComponent } from './pages/vehiculos/vehiculo-crear.component';
+import { VehiculoGestionarComponent } from './pages/vehiculos/vehiculo-gestionar.component';
 
 const ADMIN = { roles: ['ADMINISTRADOR'] };
 const AMBOS = { roles: ['ADMINISTRADOR', 'OPERADOR'] };
@@ -34,6 +37,20 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
       { path: 'inicio', component: InicioComponent, title: 'Inicio' },
+      {
+        path: 'vehiculos/nuevo',
+        component: VehiculoCrearComponent,
+        canActivate: [rolGuard],
+        data: AMBOS,
+        title: 'Registrar vehículo',
+      },
+      {
+        path: 'vehiculos/gestionar',
+        component: VehiculoGestionarComponent,
+        canActivate: [rolGuard],
+        data: ADMIN,
+        title: 'Gestionar vehículo',
+      },
       {
         path: 'entrada',
         component: EntradaComponent,
@@ -61,6 +78,13 @@ export const routes: Routes = [
         canActivate: [rolGuard],
         data: AMBOS,
         title: 'Vehículos presentes',
+      },
+      {
+        path: 'correccion/:id',
+        component: CorreccionComponent,
+        canActivate: [rolGuard],
+        data: AMBOS,
+        title: 'Corregir celda',
       },
       {
         path: 'reportes',

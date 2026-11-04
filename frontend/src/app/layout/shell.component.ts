@@ -62,6 +62,8 @@ export class ShellComponent {
     { ruta: '/inicio', texto: 'Inicio', icono: 'home', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/operadores', texto: 'Operadores', icono: 'badge', roles: ['ADMINISTRADOR'] },
     { ruta: '/celdas', texto: 'Celdas', icono: 'local_parking', roles: ['ADMINISTRADOR'] },
+    { ruta: '/vehiculos/nuevo', texto: 'Registrar vehículo', icono: 'add_road', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { ruta: '/vehiculos/gestionar', texto: 'Gestionar vehículos', icono: 'edit', roles: ['ADMINISTRADOR'] },
     { ruta: '/entrada', texto: 'Entrada', icono: 'login', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/salida', texto: 'Salida', icono: 'logout', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/ocupacion', texto: 'Ocupación', icono: 'grid_view', roles: ['ADMINISTRADOR', 'OPERADOR'] },
