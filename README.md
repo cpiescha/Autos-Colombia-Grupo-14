@@ -191,8 +191,8 @@ La aplicación sigue una arquitectura de tres capas. Angular presenta los formul
 
 ```text
 frontend/
-  src/app/pages/       Pantallas de entrada, salida, ocupación, reportes y corrección
-  src/app/services/    Comunicación HTTP con FastAPI
+  src/app/pages/       Login, operación, operadores, celdas y vehículos
+  src/app/services/    Comunicación autenticada con FastAPI
   src/app/models/      Tipos usados por las pantallas
 backend/
   app/api/             Endpoints HTTP
@@ -202,7 +202,7 @@ backend/
   app/db/              Conexión y operaciones de PostgreSQL
   scripts/schema.sql   Tablas, tipos, relaciones y restricciones
   scripts/seed.sql     Datos iniciales y casos de demostración
-  tests/               Pruebas automatizadas pendientes de ejecución final
+  tests/               Pruebas automatizadas de API, permisos y persistencia
 docs/                  Recorrido y evidencia manual
 docker-compose.yml     Inicia frontend, backend y PostgreSQL
 .env.example           Variables de entorno de desarrollo
@@ -210,10 +210,13 @@ docker-compose.yml     Inicia frontend, backend y PostgreSQL
 
 ### Flujo de una operación
 
-1. El usuario realiza una acción en Angular.
-2. `AccesoService` envía la solicitud a `/api`.
-3. FastAPI valida la mensualidad, el vehículo, el comprobante y la disponibilidad.
-4. PostgreSQL guarda el movimiento dentro de una transacción.
-5. FastAPI devuelve la celda o el resultado confirmado y Angular lo muestra.
+1. El empleado inicia sesión y Angular valida el token con `/api/auth/me`.
+2. El interceptor adjunta el token a cada solicitud `/api`.
+3. FastAPI vuelve a consultar la cuenta activa y aplica los permisos del perfil.
+4. FastAPI valida las reglas del vehículo, la celda o el movimiento solicitado.
+5. PostgreSQL guarda los cambios y la cuenta responsable dentro de una transacción.
+6. Angular muestra únicamente el resultado confirmado por la API.
+
+La interfaz permite a ambos perfiles registrar vehículos y operar entradas/salidas. Solo el administrador gestiona operadores, celdas y vehículos guardados. El selector de vehículos consulta clientes existentes mediante `GET /api/clientes`; no existe CRUD de clientes en esta entrega.
 
 Para conocer todos los endpoints disponibles, iniciar el entorno y abrir <http://localhost:8080/docs>.
