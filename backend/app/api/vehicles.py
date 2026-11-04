@@ -63,6 +63,8 @@ def get_vehicle(
         marca=vehicle.brand,
         modelo=vehicle.model,
         color=vehicle.color,
+        cliente_id=vehicle.client_id,
+        activo=vehicle.active,
         estado_mensualidad=(
             "vigente" if authorization.membership_active else "vencida"
         ),

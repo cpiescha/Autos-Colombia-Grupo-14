@@ -17,6 +17,8 @@ import { OcupacionComponent } from './pages/ocupacion/ocupacion.component';
 import { PresentesComponent } from './pages/presentes/presentes.component';
 import { ReportesComponent } from './pages/reportes/reportes.component';
 import { SalidaComponent } from './pages/salida/salida.component';
+import { VehiculoCrearComponent } from './pages/vehiculos/vehiculo-crear.component';
+import { VehiculoGestionarComponent } from './pages/vehiculos/vehiculo-gestionar.component';
 
 const ADMIN = { roles: ['ADMINISTRADOR'] };
 const AMBOS = { roles: ['ADMINISTRADOR', 'OPERADOR'] };
@@ -35,6 +37,20 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
       { path: 'inicio', component: InicioComponent, title: 'Inicio' },
+      {
+        path: 'vehiculos/nuevo',
+        component: VehiculoCrearComponent,
+        canActivate: [rolGuard],
+        data: AMBOS,
+        title: 'Registrar vehículo',
+      },
+      {
+        path: 'vehiculos/gestionar',
+        component: VehiculoGestionarComponent,
+        canActivate: [rolGuard],
+        data: ADMIN,
+        title: 'Gestionar vehículo',
+      },
       {
         path: 'entrada',
         component: EntradaComponent,
