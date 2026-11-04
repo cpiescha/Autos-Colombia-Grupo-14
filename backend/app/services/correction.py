@@ -141,6 +141,7 @@ def _persistence_error(error: PersistenceError) -> CellCorrectionError:
         "STAY_ALREADY_CLOSED": 409,
         "SAME_SPOT": 409,
         "SPOT_INCOMPATIBLE": 409,
+        "SPOT_INACTIVE": 409,
         "SPOT_OCCUPIED": 409,
     }
     return CellCorrectionError(

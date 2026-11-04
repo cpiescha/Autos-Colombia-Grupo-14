@@ -10,9 +10,11 @@ from app.api.entries import router as entries_router
 from app.api.exits import router as exits_router
 from app.api.occupancy import router as occupancy_router
 from app.api.operators import router as operators_router
+from app.api.parking_spots import router as parking_spots_router
 from app.api.vehicles import router as vehicles_router
 from app.services.auth import AuthenticationError, AuthorizationError
 from app.services.operator_admin import OperatorAdminError
+from app.services.parking_spot_admin import ParkingSpotAdminError
 
 app = FastAPI(
     title="Autos Colombia API",
@@ -32,6 +34,7 @@ app.include_router(exits_router)
 app.include_router(occupancy_router)
 app.include_router(corrections_router)
 app.include_router(operators_router)
+app.include_router(parking_spots_router)
 
 
 @app.exception_handler(AuthenticationError)
@@ -80,6 +83,21 @@ async def operator_admin_error_handler(
     )
 
 
+@app.exception_handler(ParkingSpotAdminError)
+async def parking_spot_admin_error_handler(
+    request: Request, error: ParkingSpotAdminError
+) -> JSONResponse:
+    del request
+    return JSONResponse(
+        status_code=error.status_code,
+        content={
+            "code": error.code,
+            "message": error.message,
+            "details": None,
+        },
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def request_validation_error_handler(
     request: Request, error: RequestValidationError
@@ -108,6 +126,15 @@ async def request_validation_error_handler(
             content={
                 "code": "INVALID_OPERATOR_DATA",
                 "message": "Los datos del operador no son válidos.",
+                "details": None,
+            },
+        )
+    if request.url.path.startswith("/api/celdas"):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "INVALID_SPOT_DATA",
+                "message": "Los datos de la celda no son válidos.",
                 "details": None,
             },
         )

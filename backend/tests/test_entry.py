@@ -29,10 +29,11 @@ class FakeEntryRepository:
         self.active_membership_vehicle_ids = {1, 2, 3, 5, 6}
         self.open_stay_vehicle_ids = {6}
         self.spots = [
-            SimpleNamespace(id=1, code="M-02", category="MOTO"),
-            SimpleNamespace(id=2, code="M-01", category="MOTO"),
-            SimpleNamespace(id=3, code="A-02", category="AUTOMOVIL"),
-            SimpleNamespace(id=4, code="A-01", category="AUTOMOVIL"),
+            SimpleNamespace(id=1, code="M-02", category="MOTO", active=True),
+            SimpleNamespace(id=2, code="M-01", category="MOTO", active=True),
+            SimpleNamespace(id=3, code="A-02", category="AUTOMOVIL", active=True),
+            SimpleNamespace(id=4, code="A-01", category="AUTOMOVIL", active=True),
+            SimpleNamespace(id=5, code="M-00", category="MOTO", active=False),
         ]
         self.stays: list[SimpleNamespace] = []
         self.receipts: list[SimpleNamespace] = []
@@ -66,7 +67,9 @@ class FakeEntryRepository:
         available = [
             spot
             for spot in self.spots
-            if spot.category == category and spot.id not in occupied_spot_ids
+            if spot.category == category
+            and spot.active
+            and spot.id not in occupied_spot_ids
         ]
         return min(available, key=lambda spot: spot.code, default=None)
 
@@ -162,6 +165,16 @@ def test_creates_an_entry_in_the_first_compatible_cell(
     assert repository.spots[repository.stays[0].parking_spot_id - 1].category == expected_category
     assert repository.queried_plates == [plate]
     assert len(repository.receipts) == 1
+
+
+def test_inactive_cell_is_never_selected_for_entry(
+    client: TestClient, repository: FakeEntryRepository
+) -> None:
+    response = client.post("/api/entradas", json={"placa": "MOTO001", "operario_id": 1})
+
+    assert response.status_code == 201
+    assert response.json()["celda"] == "M-01"
+    assert repository.stays[0].parking_spot_id == 2
 
 
 def test_creates_distinct_unpredictable_receipts_for_confirmed_entries(

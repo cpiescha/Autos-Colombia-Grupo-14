@@ -54,7 +54,11 @@ def create_parking_data(session: Session) -> None:
             operator,
             ParkingSpot(code="M-02", category=SpotCategory.MOTO),
             ParkingSpot(code="M-01", category=SpotCategory.MOTO),
-            ParkingSpot(code="A-02", category=SpotCategory.AUTOMOVIL),
+            ParkingSpot(
+                code="A-02",
+                category=SpotCategory.AUTOMOVIL,
+                active=False,
+            ),
             ParkingSpot(code="A-01", category=SpotCategory.AUTOMOVIL),
         ]
     )
@@ -91,29 +95,22 @@ def create_parking_data(session: Session) -> None:
     session.commit()
 
 
-def test_empty_state_lists_free_cells_and_zero_active_movements(
+def test_empty_state_excludes_inactive_cells_from_available_capacity(
     client: TestClient, session: Session
 ) -> None:
     create_parking_data(session)
 
-    cells = client.get("/api/celdas")
     movements = client.get("/api/movimientos/activos")
     report = client.get("/api/reportes/ocupacion")
 
-    assert cells.status_code == movements.status_code == report.status_code == 200
-    assert cells.json() == [
-        {"codigo": "A-01", "categoria": "AUTOMOVIL", "estado": "disponible", "placa": None},
-        {"codigo": "A-02", "categoria": "AUTOMOVIL", "estado": "disponible", "placa": None},
-        {"codigo": "M-01", "categoria": "MOTO", "estado": "disponible", "placa": None},
-        {"codigo": "M-02", "categoria": "MOTO", "estado": "disponible", "placa": None},
-    ]
+    assert movements.status_code == report.status_code == 200
     assert movements.json() == []
     assert report.json() == {
         "vehiculos_registrados": 3,
         "vehiculos_presentes": 0,
         "moto": {"capacidad": 2, "ocupadas": 0, "disponibles": 2},
-        "automovil": {"capacidad": 2, "ocupadas": 0, "disponibles": 2},
-        "total": {"capacidad": 4, "ocupadas": 0, "disponibles": 4},
+        "automovil": {"capacidad": 1, "ocupadas": 0, "disponibles": 1},
+        "total": {"capacidad": 3, "ocupadas": 0, "disponibles": 3},
     }
 
 
@@ -152,16 +149,9 @@ def test_open_stays_define_cell_status_and_active_movements_in_stable_order(
     )
     session.commit()
 
-    cells = client.get("/api/celdas")
     movements = client.get("/api/movimientos/activos")
     report = client.get("/api/reportes/ocupacion")
 
-    assert cells.json() == [
-        {"codigo": "A-01", "categoria": "AUTOMOVIL", "estado": "ocupada", "placa": "CAR001"},
-        {"codigo": "A-02", "categoria": "AUTOMOVIL", "estado": "disponible", "placa": None},
-        {"codigo": "M-01", "categoria": "MOTO", "estado": "disponible", "placa": None},
-        {"codigo": "M-02", "categoria": "MOTO", "estado": "ocupada", "placa": "MOT001"},
-    ]
     movement_data = movements.json()
     assert [movement["placa"] for movement in movement_data] == ["CAR001", "MOT001"]
     assert [movement["celda"] for movement in movement_data] == ["A-01", "M-02"]
@@ -174,8 +164,8 @@ def test_open_stays_define_cell_status_and_active_movements_in_stable_order(
         "vehiculos_registrados": 3,
         "vehiculos_presentes": 2,
         "moto": {"capacidad": 2, "ocupadas": 1, "disponibles": 1},
-        "automovil": {"capacidad": 2, "ocupadas": 1, "disponibles": 1},
-        "total": {"capacidad": 4, "ocupadas": 2, "disponibles": 2},
+        "automovil": {"capacidad": 1, "ocupadas": 1, "disponibles": 0},
+        "total": {"capacidad": 3, "ocupadas": 2, "disponibles": 1},
     }
 
 
@@ -211,15 +201,14 @@ def test_occupancy_report_has_category_counts_and_consistent_totals(
         "vehiculos_registrados": 3,
         "vehiculos_presentes": 2,
         "moto": {"capacidad": 2, "ocupadas": 1, "disponibles": 1},
-        "automovil": {"capacidad": 2, "ocupadas": 1, "disponibles": 1},
-        "total": {"capacidad": 4, "ocupadas": 2, "disponibles": 2},
+        "automovil": {"capacidad": 1, "ocupadas": 1, "disponibles": 0},
+        "total": {"capacidad": 3, "ocupadas": 2, "disponibles": 1},
     }
 
 
 @pytest.mark.parametrize(
     ("path", "method_name"),
     [
-        ("/api/celdas", "list_cells"),
         ("/api/movimientos/activos", "list_active_movements"),
         ("/api/reportes/ocupacion", "occupancy_report"),
     ],

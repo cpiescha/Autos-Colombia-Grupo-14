@@ -66,6 +66,15 @@ T20 agrega la administración de cuentas internas. Los tres endpoints requieren 
 
 Una solicitud sin sesión recibe `401 INVALID_SESSION`; un operador autenticado recibe `403 FORBIDDEN`; un nombre de usuario repetido recibe `409 USERNAME_EXISTS` sin crear un operador parcial. La ruta de estado no permite modificar cuentas administrativas. El alta normaliza el usuario a minúsculas y admite letras, números, punto y guion bajo después de una letra inicial.
 
+T21 agrega la administración persistente de celdas:
+
+- `GET /api/celdas`: requiere una sesión de administrador u operador y devuelve ID, código, categoría, estado (`disponible`, `ocupada` o `inactiva`), placa actual e indicador de historial.
+- `POST /api/celdas`: solo administrador; recibe `codigo` y `categoria` (`MOTO` o `AUTOMOVIL`). El código se normaliza a mayúsculas y no se admite duplicado.
+- `PATCH /api/celdas/{id}`: solo administrador; recibe `{"estado":"ACTIVA"}` o `{"estado":"INACTIVA"}`.
+- `DELETE /api/celdas/{id}`: solo administrador; elimina físicamente una celda sin historial. Si tiene historial, la conserva y la deja inactiva.
+
+Una celda ocupada no puede inactivarse ni retirarse (`409 SPOT_OCCUPIED`). Las celdas inactivas permanecen visibles para auditoría, pero no cuentan como capacidad disponible, no participan en la asignación automática y no pueden seleccionarse en una corrección.
+
 El backend usa `8080` en el equipo anfitrión porque está disponible en el entorno de desarrollo. Dentro de Docker conserva el puerto `8000`, por lo que la comunicación interna sigue usando `backend:8000`.
 
 En el primer inicio, PostgreSQL ejecuta automáticamente `backend/scripts/schema.sql` y `backend/scripts/seed.sql`. Esto crea el esquema y carga las 80 celdas y los datos de prueba. Los scripts de inicialización solo se ejecutan cuando el volumen de PostgreSQL está vacío.

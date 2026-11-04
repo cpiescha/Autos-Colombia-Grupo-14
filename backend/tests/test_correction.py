@@ -40,6 +40,12 @@ def session_factory() -> Generator[sessionmaker[Session], None, None]:
                 ParkingSpot(id=3, code="M-01", category=SpotCategory.MOTO),
                 ParkingSpot(id=4, code="A-03", category=SpotCategory.AUTOMOVIL),
                 ParkingSpot(id=5, code="A-04", category=SpotCategory.AUTOMOVIL),
+                ParkingSpot(
+                    id=6,
+                    code="A-05",
+                    category=SpotCategory.AUTOMOVIL,
+                    active=False,
+                ),
                 Vehicle(
                     id=1,
                     license_plate="CAR001",
@@ -178,6 +184,7 @@ def test_corrects_a_normalized_compatible_free_spot_and_audits_once(
         (1, {"celda": "A-01", "operario_id": 1}, 409, "SAME_SPOT", "La celda nueva debe ser distinta a la asignada."),
         (1, {"celda": "M-01", "operario_id": 1}, 409, "SPOT_INCOMPATIBLE", "La celda no es compatible con el tipo de vehículo."),
         (1, {"celda": "A-03", "operario_id": 1}, 409, "SPOT_OCCUPIED", "La celda ya pertenece a otra permanencia abierta."),
+        (1, {"celda": "A-05", "operario_id": 1}, 409, "SPOT_INACTIVE", "La celda indicada está inactiva."),
         (1, {"celda": "Z-99", "operario_id": 1}, 404, "SPOT_NOT_FOUND", "La celda indicada no existe."),
         (1, {"celda": "A-02", "operario_id": 99}, 422, "OPERATOR_NOT_FOUND", "El operario no está registrado."),
     ],

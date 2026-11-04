@@ -116,6 +116,7 @@ class SqlAlchemyEntryRepository:
             select(ParkingSpot)
             .where(
                 ParkingSpot.category == category,
+                ParkingSpot.active.is_(True),
                 ~exists(open_stay_for_spot),
             )
             .order_by(ParkingSpot.code)

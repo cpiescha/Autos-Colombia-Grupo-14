@@ -95,6 +95,8 @@ def correct_parking_spot(
     ).scalar_one_or_none()
     if new_spot is None:
         raise PersistenceError("SPOT_NOT_FOUND", "La celda indicada no existe.")
+    if not new_spot.active:
+        raise PersistenceError("SPOT_INACTIVE", "La celda indicada está inactiva.")
 
     vehicle = stay.vehicle or session.get(Vehicle, stay.vehicle_id)
     if vehicle is None or not _spot_compatible(vehicle.type, new_spot.category):
