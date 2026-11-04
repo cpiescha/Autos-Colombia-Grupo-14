@@ -15,7 +15,7 @@ Integrate the existing Angular T23–T24 screens and Iteration 1 flows with the 
 - [x] **T2** · S1-S3 · Route: bounded writer · Replaced simulated operator and parking-spot administration services with the real T20/T21 APIs; pages now load and mutate asynchronously, display backend errors, use numeric cell IDs, and handle physical `204` versus history-preserving `200` deletion. Commit: `0a2cccf`.
 - [x] **T3** · S1-S3 · Route: bounded writer · Adapted entry, exit, occupancy, active movements, reports, and correction to T22: requests no longer send operator identity, current actions use the authenticated session label, inactive cells are excluded, load failures stay visible, and `/correccion/:id` is reachable for both roles. Commit: `adc59cc`.
 - [x] **T4** · S1-S4 · Route: failed writer recovered inline · Added authenticated read-only `GET /api/clientes`, extended vehicle lookup with client/active data, and added both-role registration plus administrator-only update/retirement pages with client selection. Commit: `dde0b72`.
-- [x] **T5** · S1-S3 · Route: parent integration · Reconciled routes/navigation/errors, updated README, and verified TypeScript, Angular production build, 120 backend tests, Compose configuration, and diff hygiene. Live Docker HTTP checks were unavailable because the local Compose invocation had no `AUTH_SECRET`. Commit: closure work-unit commit pending.
+- [x] **T5** · S1-S3 · Route: parent integration · Reconciled routes/navigation/errors, updated README, and verified TypeScript, Angular production build, 120 backend tests, Compose configuration, and diff hygiene. Live Docker HTTP checks were unavailable because the local Compose invocation had no `AUTH_SECRET`. Commit: `fced286`.
 
 ## Allowed edit surfaces
 
