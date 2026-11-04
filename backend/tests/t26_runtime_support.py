@@ -2,26 +2,39 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import time
 from pathlib import Path
+from uuid import uuid4
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def available_port() -> int:
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        return int(listener.getsockname()[1])
+
+
 class T26Runtime:
-    def __init__(self, project: str = "autos_t26_pytest") -> None:
-        self.project = project
-        self.backend_port = 18082
-        self.frontend_port = 14202
+    def __init__(self) -> None:
+        self.project = f"autos_t26_{os.getpid()}_{uuid4().hex[:8]}"
+        self.backend_port = available_port()
+        self.frontend_port = available_port()
         self.base_url = f"http://127.0.0.1:{self.backend_port}"
+        self.db_name = "autos_colombia"
+        self.db_user = "autos_colombia"
         self.env = os.environ.copy()
         self.env.update(
             AUTH_SECRET="t26-runtime-verification-secret-2026",
             BACKEND_PORT=str(self.backend_port),
             FRONTEND_PORT=str(self.frontend_port),
+            POSTGRES_DB=self.db_name,
+            POSTGRES_USER=self.db_user,
+            POSTGRES_PASSWORD="autos_colombia_t26",
         )
 
     def compose(self, *args: str, timeout: int = 240) -> subprocess.CompletedProcess[str]:
@@ -36,7 +49,6 @@ class T26Runtime:
         )
 
     def start(self) -> None:
-        self.stop()
         self.compose("up", "-d", "--build")
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
@@ -49,15 +61,7 @@ class T26Runtime:
         raise AssertionError(self.compose("ps").stdout)
 
     def stop(self) -> None:
-        subprocess.run(
-            ["docker", "compose", "-p", self.project, "down", "-v", "--remove-orphans"],
-            cwd=ROOT,
-            env=self.env,
-            text=True,
-            capture_output=True,
-            timeout=60,
-            check=False,
-        )
+        self.compose("down", "-v", "--remove-orphans", timeout=60)
 
     def request_result(
         self,
@@ -108,9 +112,9 @@ class T26Runtime:
             "db",
             "psql",
             "-U",
-            "autos_colombia",
+            self.db_user,
             "-d",
-            "autos_colombia",
+            self.db_name,
             "-At",
             "-F",
             "|",
@@ -119,6 +123,37 @@ class T26Runtime:
             timeout=30,
         )
         return [line.split("|") for line in result.stdout.splitlines() if line]
+
+    def state_fingerprint(self) -> str:
+        tables = (
+            "clients",
+            "operators",
+            "user_accounts",
+            "vehicles",
+            "vehicle_audits",
+            "memberships",
+            "parking_spots",
+            "parking_stays",
+            "receipts",
+            "cell_corrections",
+        )
+        fragments = ",".join(
+            f"(SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY id)::text, '[]') FROM {table} t)"
+            for table in tables
+        )
+        return self.sql(f"SELECT md5(concat_ws('|',{fragments}));")[0][0]
+
+    def install_entry_delay(self, prefix: str, seconds: float = 2.0) -> None:
+        self.sql(
+            "CREATE OR REPLACE FUNCTION t26_delay_entry() RETURNS trigger LANGUAGE plpgsql AS $$ "
+            "BEGIN "
+            f"IF EXISTS (SELECT 1 FROM vehicles WHERE id=NEW.vehicle_id AND license_plate LIKE '{prefix}%') "
+            f"THEN PERFORM pg_sleep({seconds}); END IF; "
+            "RETURN NEW; END; $$;"
+            "DROP TRIGGER IF EXISTS t26_delay_entry ON parking_stays;"
+            "CREATE TRIGGER t26_delay_entry BEFORE INSERT ON parking_stays "
+            "FOR EACH ROW EXECUTE FUNCTION t26_delay_entry();"
+        )
 
     def reset_operational_state(self) -> None:
         self.sql(
