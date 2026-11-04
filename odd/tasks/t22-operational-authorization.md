@@ -14,12 +14,12 @@ Protect Iteration 1 operations with the T19 identity boundary, add role-aware ve
 
 ## Tasks
 
-- [x] **T1** · S1-S7 · Route: parent inline · Establish RED contract tests, reconcile the two writer units, and preserve exact 401/403/no-mutation behavior. Commit: feat(T22).
-- [x] **T2** · S4-S5, S7 · Route: parallel writer A · Implement authenticated vehicle registration for both roles, administrator-only update/retirement, existing-client validation, logical retirement/history preservation, and vehicle audit evidence. Commit: feat(T22).
-- [x] **T3** · S2-S3, S6 · Route: parallel writer B · Protect lookup, entry, exit, active movements, occupancy reports, and correction; remove caller-controlled operator IDs and derive the responsible operator from the session. Commit: feat(T22).
-- [x] **T4** · S1-S7 · Route: parent integration · Resolve shared router/error/docs integration, run focused and full regression checks, and verify the real PostgreSQL HTTP stack. Commit: feat(T22).
-- [x] **T5** · S1-S7 · Route: independent verifier for items 1-3 · Verify permission boundaries, audit attribution, logical retirement, rejected-request immutability, and Iteration 1 regression. Commit: feat(T22).
-- [ ] **T6** · S1-S7 · Route: parent inline · Record evidence, publish directly to `camilo-backend`, and confirm the remote revision. Commit: pending.
+- [x] **T1** · S1-S7 · Route: parent inline · Establish RED contract tests, reconcile the two writer units, and preserve exact 401/403/no-mutation behavior. Commit: 325a38f.
+- [x] **T2** · S4-S5, S7 · Route: parallel writer A · Implement authenticated vehicle registration for both roles, administrator-only update/retirement, existing-client validation, logical retirement/history preservation, and vehicle audit evidence. Commit: 325a38f.
+- [x] **T3** · S2-S3, S6 · Route: parallel writer B · Protect lookup, entry, exit, active movements, occupancy reports, and correction; remove caller-controlled operator IDs and derive the responsible operator from the session. Commit: 325a38f.
+- [x] **T4** · S1-S7 · Route: parent integration · Resolve shared router/error/docs integration, run focused and full regression checks, and verify the real PostgreSQL HTTP stack. Commit: 325a38f.
+- [x] **T5** · S1-S7 · Route: independent verifier for items 1-3 · Verify permission boundaries, audit attribution, logical retirement, rejected-request immutability, and Iteration 1 regression. Commit: 325a38f.
+- [x] **T6** · S1-S7 · Route: parent inline · Record evidence, publish directly to `camilo-backend`, and confirm the remote revision. Commit: 325a38f.
 
 ## Allowed edit surfaces
 
