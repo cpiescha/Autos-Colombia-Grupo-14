@@ -172,7 +172,7 @@ El registro guiado y los datos esperados están en [`docs/VERIFICACION_MANUAL_IT
 
 ## Verificaciones automatizadas
 
-La suite de `backend/tests/` cubre los flujos de la Iteración 1, la persistencia T17/T18 y la autenticación T19. La prueba concurrente T13 continúa pendiente: no se declara verificada hasta probar dos ingresos simultáneos contra PostgreSQL.
+La suite de `backend/tests/` cubre los flujos de las iteraciones 1 y 2. T26 agrega pruebas opt-in contra PostgreSQL 16 para dos operadores simultáneos, competencia por la última celda, permisos, auditoría, sesión anulada y regresión operativa.
 
 Para ejecutar la suite:
 
@@ -184,6 +184,14 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 pytest
 ```
+
+Para ejecutar la concurrencia real con Docker:
+
+```bash
+RUN_T26_DOCKER=1 .venv/Scripts/python.exe -m pytest -q tests/test_t26_runtime.py
+```
+
+El resultado y los escenarios están en [`docs/VERIFICACION_T26.md`](docs/VERIFICACION_T26.md).
 
 ## Partes del proyecto
 
