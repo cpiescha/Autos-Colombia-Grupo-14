@@ -9,7 +9,7 @@ from typing import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_entry_repository
+from app.api.dependencies import get_current_account, get_entry_repository
 from app.main import app
 
 
@@ -125,8 +125,16 @@ def repository() -> FakeEntryRepository:
 
 
 @pytest.fixture
-def client(repository: FakeEntryRepository) -> Iterator[TestClient]:
+def account() -> SimpleNamespace:
+    return SimpleNamespace(id=1, operator_id=1)
+
+
+@pytest.fixture
+def client(
+    repository: FakeEntryRepository, account: SimpleNamespace
+) -> Iterator[TestClient]:
     app.dependency_overrides[get_entry_repository] = lambda: repository
+    app.dependency_overrides[get_current_account] = lambda: account
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -200,11 +208,12 @@ def test_rejects_an_unknown_vehicle_without_persisting_state(
 
 
 def test_rejects_an_unknown_operator_without_persisting_state(
-    client: TestClient, repository: FakeEntryRepository
+    client: TestClient, repository: FakeEntryRepository, account: SimpleNamespace
 ) -> None:
+    account.operator_id = 99
     before = repository.state()
 
-    response = client.post("/api/entradas", json={"placa": "MOTO001", "operario_id": 99})
+    response = client.post("/api/entradas", json={"placa": "MOTO001"})
 
     assert_error(response, 422, "OPERATOR_NOT_FOUND", "El operario no está registrado.")
     assert repository.state() == before
@@ -273,9 +282,9 @@ def test_rejects_when_no_compatible_spot_is_available_without_persisting_state(
 @pytest.mark.parametrize(
     "payload",
     [
-        {"placa": "   ", "operario_id": 1},
-        {"placa": "MOTO001", "operario_id": 0},
-        {"placa": "MOTO001", "operario_id": "1"},
+        {"placa": "   "},
+        {},
+        {"placa": 0},
     ],
 )
 def test_rejects_invalid_entry_data_without_persisting_state(

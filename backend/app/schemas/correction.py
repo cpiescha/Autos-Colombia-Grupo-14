@@ -1,11 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, StrictStr, field_validator
 
 
 class CellCorrectionRequest(BaseModel):
     celda: StrictStr
-    operario_id: StrictInt = Field(gt=0)
 
     @field_validator("celda")
     @classmethod

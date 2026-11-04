@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_vehicle_repository
+from app.api.dependencies import get_current_account, get_vehicle_repository
 from app.main import app
 
 
@@ -81,6 +81,7 @@ def repository() -> FakeVehicleRepository:
 
 @pytest.fixture
 def client(repository: FakeVehicleRepository):
+    app.dependency_overrides[get_current_account] = lambda: SimpleNamespace(id=1)
     app.dependency_overrides[get_vehicle_repository] = lambda: repository
     with TestClient(app) as test_client:
         yield test_client

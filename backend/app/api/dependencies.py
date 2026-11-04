@@ -20,7 +20,7 @@ def get_vehicle_repository(
 
 
 def get_entry_repository(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, use_cache=False),
 ) -> EntryRepository:
     return SqlAlchemyEntryRepository(db)
 
@@ -30,7 +30,7 @@ _bearer = HTTPBearer(auto_error=False)
 
 def get_current_account(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, use_cache=False),
 ) -> UserAccount:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise invalid_session_error()

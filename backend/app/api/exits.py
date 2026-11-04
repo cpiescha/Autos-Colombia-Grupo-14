@@ -7,7 +7,9 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_account
 from app.db.session import get_db
+from app.models import UserAccount
 from app.schemas.exit import (
     ExitCreateRequest,
     ExitErrorResponse,
@@ -46,7 +48,8 @@ router = APIRouter(
 @router.get("/comprobantes/{receipt_code}", response_model=ExitPreviewResponse)
 def preview_exit(
     receipt_code: str,
-    db: Session = Depends(get_db),
+    current_account: UserAccount = Depends(get_current_account),
+    db: Session = Depends(get_db, use_cache=False),
 ) -> ExitPreviewResponse | JSONResponse:
     try:
         result = ExitService(db).preview(receipt_code)
@@ -70,10 +73,11 @@ def preview_exit(
 @router.post("", response_model=ExitResponse)
 def confirm_exit(
     request: ExitCreateRequest,
-    db: Session = Depends(get_db),
+    current_account: UserAccount = Depends(get_current_account),
+    db: Session = Depends(get_db, use_cache=False),
 ) -> ExitResponse | JSONResponse:
     try:
-        result = ExitService(db).confirm(request.comprobante, request.operario_id)
+        result = ExitService(db).confirm(request.comprobante, current_account.operator_id)
     except ExitError as error:
         return _error_response(error.status_code, error.code, error.message)
     except Exception:

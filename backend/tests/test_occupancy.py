@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -10,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.dependencies import get_current_account
 from app.api.occupancy import router
 from app.db.base import Base
 from app.db.session import get_db
@@ -41,6 +43,7 @@ def client(session: Session) -> Generator[TestClient, None, None]:
         yield session
 
     app.dependency_overrides[get_db] = get_test_db
+    app.dependency_overrides[get_current_account] = lambda: SimpleNamespace(id=1, operator_id=1)
     with TestClient(app) as test_client:
         yield test_client
 

@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.corrections import router
+from app.api.dependencies import get_current_account
 from app.db.base import Base
 from app.db.session import get_db
 from app.models.cell_correction import CellCorrection
@@ -107,7 +109,14 @@ def session_factory() -> Generator[sessionmaker[Session], None, None]:
 
 
 @pytest.fixture
-def client(session_factory: sessionmaker[Session]) -> Generator[TestClient, None, None]:
+def account() -> SimpleNamespace:
+    return SimpleNamespace(id=1, operator_id=1)
+
+
+@pytest.fixture
+def client(
+    session_factory: sessionmaker[Session], account: SimpleNamespace
+) -> Generator[TestClient, None, None]:
     test_app = FastAPI()
     test_app.include_router(router)
 
@@ -119,6 +128,7 @@ def client(session_factory: sessionmaker[Session]) -> Generator[TestClient, None
             db.close()
 
     test_app.dependency_overrides[get_db] = override_get_db
+    test_app.dependency_overrides[get_current_account] = lambda: account
     with TestClient(test_app) as test_client:
         yield test_client
 
@@ -177,27 +187,30 @@ def test_corrects_a_normalized_compatible_free_spot_and_audits_once(
 
 
 @pytest.mark.parametrize(
-    ("movement_id", "payload", "status_code", "code", "message"),
+    ("movement_id", "payload", "operator_id", "status_code", "code", "message"),
     [
-        (99, {"celda": "A-02", "operario_id": 1}, 404, "STAY_NOT_FOUND", "No existe el movimiento."),
-        (2, {"celda": "A-01", "operario_id": 1}, 409, "STAY_ALREADY_CLOSED", "No se puede corregir una permanencia cerrada."),
-        (1, {"celda": "A-01", "operario_id": 1}, 409, "SAME_SPOT", "La celda nueva debe ser distinta a la asignada."),
-        (1, {"celda": "M-01", "operario_id": 1}, 409, "SPOT_INCOMPATIBLE", "La celda no es compatible con el tipo de vehículo."),
-        (1, {"celda": "A-03", "operario_id": 1}, 409, "SPOT_OCCUPIED", "La celda ya pertenece a otra permanencia abierta."),
-        (1, {"celda": "A-05", "operario_id": 1}, 409, "SPOT_INACTIVE", "La celda indicada está inactiva."),
-        (1, {"celda": "Z-99", "operario_id": 1}, 404, "SPOT_NOT_FOUND", "La celda indicada no existe."),
-        (1, {"celda": "A-02", "operario_id": 99}, 422, "OPERATOR_NOT_FOUND", "El operario no está registrado."),
+        (99, {"celda": "A-02"}, 1, 404, "STAY_NOT_FOUND", "No existe el movimiento."),
+        (2, {"celda": "A-01"}, 1, 409, "STAY_ALREADY_CLOSED", "No se puede corregir una permanencia cerrada."),
+        (1, {"celda": "A-01"}, 1, 409, "SAME_SPOT", "La celda nueva debe ser distinta a la asignada."),
+        (1, {"celda": "M-01"}, 1, 409, "SPOT_INCOMPATIBLE", "La celda no es compatible con el tipo de vehículo."),
+        (1, {"celda": "A-03"}, 1, 409, "SPOT_OCCUPIED", "La celda ya pertenece a otra permanencia abierta."),
+        (1, {"celda": "A-05"}, 1, 409, "SPOT_INACTIVE", "La celda indicada está inactiva."),
+        (1, {"celda": "Z-99"}, 1, 404, "SPOT_NOT_FOUND", "La celda indicada no existe."),
+        (1, {"celda": "A-02"}, 99, 422, "OPERATOR_NOT_FOUND", "El operario no está registrado."),
     ],
 )
 def test_rejects_each_business_rule_without_changing_stay_or_audit(
     client: TestClient,
     session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
     movement_id: int,
     payload: dict[str, object],
+    operator_id: int,
     status_code: int,
     code: str,
     message: str,
 ) -> None:
+    account.operator_id = operator_id
     before = state(session_factory)
 
     response = client.patch(f"/api/movimientos/{movement_id}/celda", json=payload)
@@ -209,10 +222,9 @@ def test_rejects_each_business_rule_without_changing_stay_or_audit(
 @pytest.mark.parametrize(
     "payload",
     [
-        {"celda": "   ", "operario_id": 1},
-        {"celda": "A-02", "operario_id": 0},
-        {"celda": "A-02", "operario_id": "1"},
-        {"operario_id": 1},
+        {"celda": "   "},
+        {"celda": 1},
+        {},
         [],
     ],
 )
