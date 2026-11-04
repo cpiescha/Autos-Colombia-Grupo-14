@@ -13,6 +13,9 @@ type Filtro = 'todos' | 'ACTIVA' | 'ANULADA';
     <h1>Operadores</h1>
     <p class="sub">Cuentas internas con acceso al registro de entradas y salidas.</p>
 
+    @if (svc.pendiente()) { <p role="status">Cargando cuentas…</p> }
+    @if (svc.error()) { <div class="aviso-error" role="alert">{{ svc.error() }} <button class="enlace" (click)="svc.cargar()" [disabled]="svc.pendiente()">Reintentar</button></div> }
+
     <div class="herramientas">
       <input class="buscador" placeholder="Buscar por nombre o usuario" aria-label="Buscar por nombre o usuario"
              (input)="texto.set($any($event.target).value)" />
@@ -28,12 +31,12 @@ type Filtro = 'todos' | 'ACTIVA' | 'ANULADA';
     <div class="panel">
       <strong>Cuentas registradas · {{ filtradas().length }}</strong>
 
-      @if (filtradas().length === 0) {
+      @if (!svc.pendiente() && !svc.error() && filtradas().length === 0) {
         <p class="vacio">No hay cuentas que coincidan con la búsqueda o el filtro.</p>
       } @else {
         <table class="tabla">
           <thead>
-            <tr><th>Operador</th><th>Usuario</th><th>Perfil</th><th>Estado</th><th>Último acceso</th><th>Acción</th></tr>
+            <tr><th>Operador</th><th>Usuario</th><th>Perfil</th><th>Estado</th><th>Actualización</th><th>Acción</th></tr>
           </thead>
           <tbody>
             @for (c of filtradas(); track c.id) {
@@ -42,7 +45,7 @@ type Filtro = 'todos' | 'ACTIVA' | 'ANULADA';
                 <td>{{ c.usuario }}</td>
                 <td>{{ c.rol }}</td>
                 <td><span class="chip" [class.ok]="c.estado === 'ACTIVA'" [class.bad]="c.estado === 'ANULADA'">{{ c.estado }}</span></td>
-                <td>{{ c.ultimoAcceso ? (c.ultimoAcceso | date: 'dd/MM/yyyy HH:mm') : 'Nunca' }}</td>
+                <td>{{ c.actualizado_en | date: 'dd/MM/yyyy HH:mm' }}</td>
                 <td>
                   @if (c.rol === 'OPERADOR') {
                     <a class="enlace" [routerLink]="['/operadores', c.id]">Gestionar</a>
@@ -57,7 +60,9 @@ type Filtro = 'todos' | 'ACTIVA' | 'ANULADA';
   `,
 })
 export class OperadoresComponent {
-  private svc = inject(OperadoresService);
+  svc = inject(OperadoresService);
+
+  constructor() { void this.svc.cargar(); }
 
   texto = signal('');
   filtro = signal<Filtro>('todos');
