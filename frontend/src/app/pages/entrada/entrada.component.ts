@@ -11,6 +11,9 @@ type Fase = 'buscar' | 'confirmar' | 'listo';
   standalone: true,
   imports: [FormsModule, DatePipe],
   template: `
+    @if (acceso.errorDatos()) {
+      <p class="alerta alerta-error" role="alert">{{ acceso.errorDatos() }}</p>
+    }
     @switch (fase()) {
  
       @case ('buscar') {
@@ -129,7 +132,7 @@ type Fase = 'buscar' | 'confirmar' | 'listo';
   styleUrl: '../paginas.scss',
 })
 export class EntradaComponent {
-  private acceso = inject(AccesoService);
+  readonly acceso = inject(AccesoService);
  
   placa = '';
   fase = signal<Fase>('buscar');
@@ -149,6 +152,7 @@ export class EntradaComponent {
   }
  
   async consultar(): Promise<void> {
+    if (this.cargando()) return;
     this.consulta.set(null);
     this.vacio.set(!this.placa.trim());
     if (this.vacio()) return;

@@ -17,6 +17,9 @@ import { RegistroAcceso, SalidaPrevia } from '../../models/models';
     MatButtonModule, MatIconModule, MatSnackBarModule],
   template: `
     <h1>Registro de salida</h1>
+    @if (acceso.errorDatos()) {
+      <p class="error" role="alert">{{ acceso.errorDatos() }}</p>
+    }
     <p class="ayuda">Consulte el comprobante entregado al ingreso. Confirme los datos antes de liberar la celda.</p>
 
     <mat-card class="tarjeta">
@@ -53,7 +56,7 @@ import { RegistroAcceso, SalidaPrevia } from '../../models/models';
 
     @if (registro(); as r) {
       <div class="comprobante">
-        <h2>Comprobante de salida {{ r.comprobanteSalida?.numero }}</h2>
+        <h2>Salida registrada</h2>
         <div>Placa <strong>{{ r.placa }}</strong> · Celda liberada <strong>{{ r.celda }}</strong></div>
         <div>Entrada: {{ r.entrada | date: 'dd/MM/yyyy HH:mm' }}</div>
         <div>Salida: {{ r.salida | date: 'dd/MM/yyyy HH:mm' }}</div>
@@ -68,7 +71,7 @@ import { RegistroAcceso, SalidaPrevia } from '../../models/models';
   styleUrl: '../paginas.scss',
 })
 export class SalidaComponent {
-  private acceso = inject(AccesoService);
+  readonly acceso = inject(AccesoService);
   private aviso = inject(MatSnackBar);
 
   comprobante = '';

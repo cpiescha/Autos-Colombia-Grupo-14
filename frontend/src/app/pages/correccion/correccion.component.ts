@@ -12,6 +12,11 @@ type Fase = 'editar' | 'listo';
   standalone: true,
   imports: [FormsModule, DatePipe, RouterLink],
   template: `
+    @if (acceso.cargandoDatos()) { <p role="status">Cargando movimientos y celdas…</p> }
+    @if (acceso.errorDatos()) {
+      <p class="alerta alerta-error" role="alert">{{ acceso.errorDatos() }}</p>
+      <button type="button" class="btn" (click)="ngOnInit()">Reintentar</button>
+    }
     @switch (fase()) {
 
       @case ('editar') {
@@ -42,7 +47,7 @@ type Fase = 'editar' | 'listo';
           </datalist>
 
           <div class="alerta alerta-info">
-            No se listan motos ni celdas ocupadas. La corrección no crea un movimiento extra.
+            Solo se listan celdas activas, libres y del tipo compatible. La corrección no crea un movimiento extra.
           </div>
 
           @if (errorMensaje(); as m) {
@@ -50,12 +55,12 @@ type Fase = 'editar' | 'listo';
           }
 
           <div class="fila">
-            <button type="button" class="btn" (click)="guardar()" [disabled]="!nuevaCelda.trim()">
-              Guardar corrección
+            <button type="button" class="btn" (click)="guardar()" [disabled]="guardando() || acceso.cargandoDatos() || !!acceso.errorDatos() || !nuevaCelda.trim()">
+              {{ guardando() ? 'Guardando…' : 'Guardar corrección' }}
             </button>
             <a class="btn btn-claro" routerLink="/presentes">Cancelar</a>
           </div>
-        } @else {
+        } @else if (!acceso.cargandoDatos() && !acceso.errorDatos()) {
           <div class="alerta alerta-error" role="alert">
             No se encontró la permanencia solicitada. Vuelve a Vehículos presentes.
           </div>
@@ -89,7 +94,8 @@ type Fase = 'editar' | 'listo';
   styleUrls: ['../paginas.scss'],
 })
 export class CorreccionComponent implements OnInit {
-  private readonly acceso = inject(AccesoService);
+  readonly acceso = inject(AccesoService);
+  readonly guardando = signal(false);
   private readonly ruta = inject(ActivatedRoute);
 
   readonly idRegistro = Number(this.ruta.snapshot.paramMap.get('id'));
@@ -116,7 +122,8 @@ export class CorreccionComponent implements OnInit {
   readonly tipoLegible = computed(() => {
     const r = this.registro();
     if (!r) return '';
-    return r.celda.startsWith('M') ? 'motocicleta' : 'automóvil';
+    const tipo = this.acceso.tipoCelda(r.celda);
+    return tipo === 'MOTO' ? 'motocicleta' : tipo === 'CARRO' ? 'automóvil' : 'No disponible';
   });
 
   readonly fase = signal<Fase>('editar');
@@ -126,8 +133,11 @@ export class CorreccionComponent implements OnInit {
   nuevaCelda = '';
 
   async guardar(): Promise<void> {
+    if (this.guardando()) return;
     this.errorMensaje.set('');
+    this.guardando.set(true);
     const resultado = await this.acceso.corregirCelda(this.idRegistro, this.nuevaCelda);
+    this.guardando.set(false);
     if (!resultado.ok || !resultado.dato) {
       this.errorMensaje.set(resultado.mensaje);
       return;

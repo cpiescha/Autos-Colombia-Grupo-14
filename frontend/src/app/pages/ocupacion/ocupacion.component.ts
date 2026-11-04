@@ -12,16 +12,22 @@ import { AccesoService } from '../../services/acceso.service';
     <h1>Ocupación de celdas</h1>
     <p class="ayuda">Estado actual del parqueadero. Se actualiza solo cuando se registra un ingreso o una salida.</p>
 
+    @if (acceso.cargandoDatos()) {
+      <p role="status">Cargando ocupación…</p>
+    } @else if (acceso.errorDatos()) {
+      <p role="alert">{{ acceso.errorDatos() }}</p>
+      <button type="button" (click)="acceso.cargarDatos()">Reintentar</button>
+    } @else {
     <div class="resumen">
       <span class="estado ok">Libres: {{ acceso.libres() }}</span>
       <span class="estado mal">Ocupadas: {{ acceso.ocupadas() }}</span>
-      <span class="estado">Total: {{ acceso.celdas().length }}</span>
+      <span class="estado">Total activo: {{ acceso.libres() + acceso.ocupadas() }}</span>
     </div>
 
     <div class="rejilla">
       @for (c of acceso.celdas(); track c.codigo) {
         <div class="celda" [class.libre]="c.estado === 'LIBRE'" [class.ocupada]="c.estado === 'OCUPADA'"
-             [class.mant]="c.estado === 'MANTENIMIENTO'">
+             [class.mant]="c.estado === 'INACTIVA'">
           <strong>{{ c.codigo }}</strong>
           <small>{{ c.tipoVehiculo === 'CARRO' ? 'Carro' : 'Moto' }}</small>
           <small>{{ etiqueta(c.estado) }}</small>
@@ -46,6 +52,7 @@ import { AccesoService } from '../../services/acceso.service';
         }
       </mat-card-content>
     </mat-card>
+    }
   `,
   styleUrl: '../paginas.scss',
   styles: [`
@@ -66,6 +73,6 @@ export class OcupacionComponent implements OnInit {
   ngOnInit(): void { this.acceso.cargarDatos(); }
 
   etiqueta(e: string): string {
-    return e === 'LIBRE' ? 'Libre' : e === 'OCUPADA' ? 'Ocupada' : 'Mantenimiento';
+    return e === 'LIBRE' ? 'Libre' : e === 'OCUPADA' ? 'Ocupada' : 'Inactiva';
   }
 }

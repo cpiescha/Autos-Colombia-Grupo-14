@@ -17,7 +17,7 @@ import { ReporteOcupacion } from '../../models/models';
       <div class="tarjetas">
         <div class="tarjeta"><span>Vehículos registrados</span><strong>{{ r.vehiculosRegistrados }}</strong><small>Con mensualidad en el sistema</small></div>
         <div class="tarjeta"><span>Presentes ahora</span><strong>{{ r.vehiculosPresentes }}</strong><small>Permanencias abiertas</small></div>
-        <div class="tarjeta"><span>Capacidad</span><strong>{{ r.total.capacidad }}</strong><small>10 moto + 70 automóvil</small></div>
+        <div class="tarjeta"><span>Capacidad</span><strong>{{ r.total.capacidad }}</strong><small>{{ r.moto.capacidad }} moto + {{ r.automovil.capacidad }} automóvil</small></div>
         <div class="tarjeta"><span>Libres</span><strong>{{ r.total.disponibles }}</strong><small>Disponibles ahora</small></div>
       </div>
 
@@ -27,7 +27,7 @@ import { ReporteOcupacion } from '../../models/models';
         <div>Automóviles ocupados: {{ r.automovil.ocupadas }} / {{ r.automovil.capacidad }}</div>
       </div>
     } @else if (!error()) {
-      <div class="aviso">Cargando reporte…</div>
+      <div class="aviso" role="status">Cargando reporte…</div>
     }
   `,
   styles: [`

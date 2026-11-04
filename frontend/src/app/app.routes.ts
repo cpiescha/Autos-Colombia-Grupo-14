@@ -5,6 +5,7 @@ import { AccesoDenegadoComponent } from './pages/acceso-denegado/acceso-denegado
 import { CeldaCrearComponent } from './pages/admin/celdas/celda-crear.component';
 import { CeldaInactivarComponent } from './pages/admin/celdas/celda-inactivar.component';
 import { CeldasComponent } from './pages/admin/celdas/celdas.component';
+import { CorreccionComponent } from './pages/correccion/correccion.component';
 import { OperadorCreadoComponent } from './pages/admin/operadores/operador-creado.component';
 import { OperadorCrearComponent } from './pages/admin/operadores/operador-crear.component';
 import { OperadorGestionarComponent } from './pages/admin/operadores/operador-gestionar.component';
@@ -61,6 +62,13 @@ export const routes: Routes = [
         canActivate: [rolGuard],
         data: AMBOS,
         title: 'Vehículos presentes',
+      },
+      {
+        path: 'correccion/:id',
+        component: CorreccionComponent,
+        canActivate: [rolGuard],
+        data: AMBOS,
+        title: 'Corregir celda',
       },
       {
         path: 'reportes',
