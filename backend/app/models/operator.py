@@ -21,3 +21,7 @@ class Operator(Base):
     cell_corrections: Mapped[list["CellCorrection"]] = relationship(
         back_populates="operator"
     )
+    account: Mapped["UserAccount | None"] = relationship(
+        back_populates="operator",
+        uselist=False,
+    )

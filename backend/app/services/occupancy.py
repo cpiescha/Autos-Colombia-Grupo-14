@@ -119,6 +119,7 @@ class OccupancyService:
                     ParkingStay.exited_at.is_(None),
                 ),
             )
+            .where(ParkingSpot.active.is_(True))
             .group_by(ParkingSpot.category)
         )
         totals_by_category = {

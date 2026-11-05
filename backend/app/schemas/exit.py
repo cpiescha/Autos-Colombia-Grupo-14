@@ -1,11 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, StrictInt, field_validator
+from pydantic import BaseModel, field_validator
 
 
 class ExitCreateRequest(BaseModel):
     comprobante: str
-    operario_id: StrictInt = Field(gt=0)
 
     @field_validator("comprobante")
     @classmethod

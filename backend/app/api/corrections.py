@@ -7,7 +7,9 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_account
 from app.db.session import get_db
+from app.models import UserAccount
 from app.schemas.correction import (
     CellCorrectionRequest,
     CellCorrectionResponse,
@@ -46,13 +48,14 @@ router = APIRouter(
 def correct_cell(
     request: CellCorrectionRequest,
     movement_id: int = Path(gt=0),
-    db: Session = Depends(get_db),
+    current_account: UserAccount = Depends(get_current_account),
+    db: Session = Depends(get_db, use_cache=False),
 ) -> CellCorrectionResponse | JSONResponse:
     try:
         result = CellCorrectionService(SqlAlchemyCellCorrectionRepository(db)).correct(
             stay_id=movement_id,
             spot_code=request.celda,
-            operator_id=request.operario_id,
+            operator_id=current_account.operator_id,
         )
     except CellCorrectionError as error:
         return _error_response(error.status_code, error.code, error.message)

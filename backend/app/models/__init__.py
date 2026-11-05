@@ -5,7 +5,9 @@ from app.models.operator import Operator
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_stay import ParkingStay
 from app.models.receipt import Receipt
+from app.models.user_account import UserAccount
 from app.models.vehicle import Vehicle
+from app.models.vehicle_audit import VehicleAudit
 
 __all__ = [
     "CellCorrection",
@@ -15,5 +17,7 @@ __all__ = [
     "ParkingSpot",
     "ParkingStay",
     "Receipt",
+    "UserAccount",
     "Vehicle",
+    "VehicleAudit",
 ]

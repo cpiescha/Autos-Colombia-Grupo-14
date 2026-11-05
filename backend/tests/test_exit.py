@@ -10,6 +10,9 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from types import SimpleNamespace
+
+from app.api.dependencies import get_current_account
 from app.api.exits import router
 from app.db.base import Base
 from app.db.session import get_db
@@ -34,7 +37,14 @@ def session_factory() -> Iterator[sessionmaker[Session]]:
 
 
 @pytest.fixture
-def client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
+def account() -> SimpleNamespace:
+    return SimpleNamespace(id=1, operator_id=0)
+
+
+@pytest.fixture
+def client(
+    session_factory: sessionmaker[Session], account: SimpleNamespace
+) -> Iterator[TestClient]:
     app = FastAPI()
     app.include_router(router)
 
@@ -46,6 +56,7 @@ def client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_account] = lambda: account
     with TestClient(app) as test_client:
         yield test_client
 
@@ -132,13 +143,16 @@ def test_preview_rejects_wrong_receipt_case(
 
 
 def test_confirms_exit_and_frees_spot(
-    client: TestClient, session_factory: sessionmaker[Session]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
 ) -> None:
     operator_id, stay_id = create_exit_data(session_factory)
+    account.operator_id = operator_id
 
     response = client.post(
         "/api/salidas",
-        json={"comprobante": "  mIxEd-case_receipt  ", "operario_id": operator_id},
+        json={"comprobante": "  mIxEd-case_receipt  "},
     )
 
     assert response.status_code == 200
@@ -157,43 +171,46 @@ def test_confirms_exit_and_frees_spot(
 
 
 def test_accepts_a_mixed_case_receipt_code_without_normalizing_case(
-    client: TestClient, session_factory: sessionmaker[Session]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
 ) -> None:
     operator_id, _ = create_exit_data(session_factory, receipt_code="AbC_123-xYz")
+    account.operator_id = operator_id
 
     response = client.post(
         "/api/salidas",
-        json={"comprobante": " AbC_123-xYz ", "operario_id": operator_id},
+        json={"comprobante": " AbC_123-xYz "},
     )
 
     assert response.status_code == 200
 
 
 def test_rejects_an_unknown_receipt(
-    client: TestClient, session_factory: sessionmaker[Session]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
 ) -> None:
     operator_id, _ = create_exit_data(session_factory)
+    account.operator_id = operator_id
 
-    response = client.post(
-        "/api/salidas",
-        json={"comprobante": "desconocido", "operario_id": operator_id},
-    )
+    response = client.post("/api/salidas", json={"comprobante": "desconocido"})
 
     assert_error(response, 404, "RECEIPT_NOT_FOUND", "El comprobante no existe.")
 
 
 def test_rejects_an_already_used_receipt(
-    client: TestClient, session_factory: sessionmaker[Session]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
 ) -> None:
     operator_id, _ = create_exit_data(
         session_factory,
         receipt_used_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
     )
+    account.operator_id = operator_id
 
-    response = client.post(
-        "/api/salidas",
-        json={"comprobante": "mIxEd-case_receipt", "operario_id": operator_id},
-    )
+    response = client.post("/api/salidas", json={"comprobante": "mIxEd-case_receipt"})
 
     assert_error(
         response,
@@ -204,17 +221,17 @@ def test_rejects_an_already_used_receipt(
 
 
 def test_rejects_a_receipt_for_a_closed_stay(
-    client: TestClient, session_factory: sessionmaker[Session]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
 ) -> None:
     operator_id, _ = create_exit_data(
         session_factory,
         stay_exited_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
     )
+    account.operator_id = operator_id
 
-    response = client.post(
-        "/api/salidas",
-        json={"comprobante": "mIxEd-case_receipt", "operario_id": operator_id},
-    )
+    response = client.post("/api/salidas", json={"comprobante": "mIxEd-case_receipt"})
 
     assert_error(
         response,
@@ -225,14 +242,14 @@ def test_rejects_a_receipt_for_a_closed_stay(
 
 
 def test_rejects_an_unknown_operator_without_state_changes(
-    client: TestClient, session_factory: sessionmaker[Session]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
 ) -> None:
     _, stay_id = create_exit_data(session_factory)
+    account.operator_id = 999
 
-    response = client.post(
-        "/api/salidas",
-        json={"comprobante": "mIxEd-case_receipt", "operario_id": 999},
-    )
+    response = client.post("/api/salidas", json={"comprobante": "mIxEd-case_receipt"})
 
     assert_error(response, 422, "OPERATOR_NOT_FOUND", "El operario no está registrado.")
     with session_factory() as session:
@@ -245,9 +262,9 @@ def test_rejects_an_unknown_operator_without_state_changes(
 @pytest.mark.parametrize(
     "payload",
     [
-        {"comprobante": "   ", "operario_id": 1},
-        {"comprobante": "valid", "operario_id": 0},
-        {"comprobante": "valid", "operario_id": "1"},
+        {"comprobante": "   "},
+        {},
+        [],
     ],
 )
 def test_rejects_invalid_exit_data_with_the_common_error_shape(
@@ -266,11 +283,13 @@ def test_rejects_invalid_exit_data_with_the_common_error_shape(
 def test_rolls_back_when_exit_confirmation_fails(
     client: TestClient,
     session_factory: sessionmaker[Session],
+    account: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import app.services.exit as exit_service
 
     operator_id, stay_id = create_exit_data(session_factory)
+    account.operator_id = operator_id
     original_close = exit_service.close_stay_by_receipt
 
     def fail_after_close(*args, **kwargs):
@@ -281,7 +300,7 @@ def test_rolls_back_when_exit_confirmation_fails(
 
     response = client.post(
         "/api/salidas",
-        json={"comprobante": "mIxEd-case_receipt", "operario_id": operator_id},
+        json={"comprobante": "mIxEd-case_receipt"},
     )
 
     assert_error(

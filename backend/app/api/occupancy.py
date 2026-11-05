@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_account
 from app.db.session import get_db
 from app.schemas.occupancy import (
-    CeldaResponse,
     MovimientoActivoResponse,
     ReporteOcupacionResponse,
     TotalesOcupacionResponse,
@@ -12,18 +12,8 @@ from app.schemas.occupancy import (
 from app.services.occupancy import OccupancyService, TotalesOcupacion
 
 
-router = APIRouter(tags=["ocupacion"])
+router = APIRouter(tags=["ocupacion"], dependencies=[Depends(get_current_account)])
 
-
-@router.get("/api/celdas", response_model=list[CeldaResponse])
-def list_cells(db: Session = Depends(get_db)) -> list[CeldaResponse] | JSONResponse:
-    try:
-        return [
-            CeldaResponse(**cell.__dict__)
-            for cell in OccupancyService(db).list_cells()
-        ]
-    except Exception:
-        return _query_error_response()
 
 
 @router.get(

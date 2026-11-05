@@ -9,7 +9,7 @@ from typing import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_entry_repository
+from app.api.dependencies import get_current_account, get_entry_repository
 from app.main import app
 
 
@@ -29,10 +29,11 @@ class FakeEntryRepository:
         self.active_membership_vehicle_ids = {1, 2, 3, 5, 6}
         self.open_stay_vehicle_ids = {6}
         self.spots = [
-            SimpleNamespace(id=1, code="M-02", category="MOTO"),
-            SimpleNamespace(id=2, code="M-01", category="MOTO"),
-            SimpleNamespace(id=3, code="A-02", category="AUTOMOVIL"),
-            SimpleNamespace(id=4, code="A-01", category="AUTOMOVIL"),
+            SimpleNamespace(id=1, code="M-02", category="MOTO", active=True),
+            SimpleNamespace(id=2, code="M-01", category="MOTO", active=True),
+            SimpleNamespace(id=3, code="A-02", category="AUTOMOVIL", active=True),
+            SimpleNamespace(id=4, code="A-01", category="AUTOMOVIL", active=True),
+            SimpleNamespace(id=5, code="M-00", category="MOTO", active=False),
         ]
         self.stays: list[SimpleNamespace] = []
         self.receipts: list[SimpleNamespace] = []
@@ -66,7 +67,9 @@ class FakeEntryRepository:
         available = [
             spot
             for spot in self.spots
-            if spot.category == category and spot.id not in occupied_spot_ids
+            if spot.category == category
+            and spot.active
+            and spot.id not in occupied_spot_ids
         ]
         return min(available, key=lambda spot: spot.code, default=None)
 
@@ -122,8 +125,16 @@ def repository() -> FakeEntryRepository:
 
 
 @pytest.fixture
-def client(repository: FakeEntryRepository) -> Iterator[TestClient]:
+def account() -> SimpleNamespace:
+    return SimpleNamespace(id=1, operator_id=1)
+
+
+@pytest.fixture
+def client(
+    repository: FakeEntryRepository, account: SimpleNamespace
+) -> Iterator[TestClient]:
     app.dependency_overrides[get_entry_repository] = lambda: repository
+    app.dependency_overrides[get_current_account] = lambda: account
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -164,6 +175,16 @@ def test_creates_an_entry_in_the_first_compatible_cell(
     assert len(repository.receipts) == 1
 
 
+def test_inactive_cell_is_never_selected_for_entry(
+    client: TestClient, repository: FakeEntryRepository
+) -> None:
+    response = client.post("/api/entradas", json={"placa": "MOTO001", "operario_id": 1})
+
+    assert response.status_code == 201
+    assert response.json()["celda"] == "M-01"
+    assert repository.stays[0].parking_spot_id == 2
+
+
 def test_creates_distinct_unpredictable_receipts_for_confirmed_entries(
     client: TestClient, repository: FakeEntryRepository
 ) -> None:
@@ -187,11 +208,12 @@ def test_rejects_an_unknown_vehicle_without_persisting_state(
 
 
 def test_rejects_an_unknown_operator_without_persisting_state(
-    client: TestClient, repository: FakeEntryRepository
+    client: TestClient, repository: FakeEntryRepository, account: SimpleNamespace
 ) -> None:
+    account.operator_id = 99
     before = repository.state()
 
-    response = client.post("/api/entradas", json={"placa": "MOTO001", "operario_id": 99})
+    response = client.post("/api/entradas", json={"placa": "MOTO001"})
 
     assert_error(response, 422, "OPERATOR_NOT_FOUND", "El operario no está registrado.")
     assert repository.state() == before
@@ -260,9 +282,9 @@ def test_rejects_when_no_compatible_spot_is_available_without_persisting_state(
 @pytest.mark.parametrize(
     "payload",
     [
-        {"placa": "   ", "operario_id": 1},
-        {"placa": "MOTO001", "operario_id": 0},
-        {"placa": "MOTO001", "operario_id": "1"},
+        {"placa": "   "},
+        {},
+        {"placa": 0},
     ],
 )
 def test_rejects_invalid_entry_data_without_persisting_state(

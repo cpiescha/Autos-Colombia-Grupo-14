@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_vehicle_repository
+from app.api.dependencies import get_current_account, get_vehicle_repository
 from app.main import app
 
 
@@ -20,6 +20,8 @@ class FakeVehicleRepository:
                 brand="Chevrolet",
                 model="Onix",
                 color="Blanco",
+                client_id=1,
+                active=True,
             ),
             "VENC001": SimpleNamespace(
                 id=2,
@@ -28,6 +30,8 @@ class FakeVehicleRepository:
                 brand="Yamaha",
                 model="FZ",
                 color="Negro",
+                client_id=1,
+                active=True,
             ),
             "CAM001": SimpleNamespace(
                 id=3,
@@ -36,6 +40,8 @@ class FakeVehicleRepository:
                 brand="Volvo",
                 model="FMX",
                 color="Azul",
+                client_id=1,
+                active=True,
             ),
             "ABI001": SimpleNamespace(
                 id=4,
@@ -44,6 +50,8 @@ class FakeVehicleRepository:
                 brand="Renault",
                 model="Logan",
                 color="Rojo",
+                client_id=1,
+                active=True,
             ),
         }
         self.memberships = {
@@ -81,6 +89,7 @@ def repository() -> FakeVehicleRepository:
 
 @pytest.fixture
 def client(repository: FakeVehicleRepository):
+    app.dependency_overrides[get_current_account] = lambda: SimpleNamespace(id=1)
     app.dependency_overrides[get_vehicle_repository] = lambda: repository
     with TestClient(app) as test_client:
         yield test_client
@@ -106,6 +115,8 @@ def test_returns_existing_vehicle_with_authorization_data(client: TestClient) ->
         "marca": "Chevrolet",
         "modelo": "Onix",
         "color": "Blanco",
+        "cliente_id": 1,
+        "activo": True,
         "estado_mensualidad": "vigente",
         "authorized": True,
         "rejection_reason": None,

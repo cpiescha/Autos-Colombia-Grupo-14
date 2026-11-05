@@ -1,11 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, StrictInt, field_validator
+from pydantic import BaseModel, field_validator
 
 
 class EntryCreateRequest(BaseModel):
     placa: str
-    operario_id: StrictInt = Field(gt=0)
 
     @field_validator("placa")
     @classmethod

@@ -11,7 +11,12 @@ import { AccesoService } from '../../services/acceso.service';
     <h1>Vehículos dentro del parqueadero</h1>
     <div class="panel">
       <strong>Tabla operativa</strong>
-      @if (acceso.activos().length === 0) {
+      @if (acceso.cargandoDatos()) {
+        <p role="status">Cargando movimientos…</p>
+      } @else if (acceso.errorDatos()) {
+        <p role="alert">{{ acceso.errorDatos() }}</p>
+        <button type="button" (click)="acceso.cargarDatos()">Reintentar</button>
+      } @else if (acceso.activos().length === 0) {
         <p class="vacio">Lista vacía: no hay permanencias abiertas.</p>
       } @else {
         <div class="scroll">
@@ -21,7 +26,7 @@ import { AccesoService } from '../../services/acceso.service';
               @for (r of acceso.activos(); track r.id) {
                 <tr>
                   <td>{{ r.placa }}</td>
-                  <td>{{ r.celda.startsWith('M') ? 'MOTO' : 'CARRO' }}</td>
+                  <td>{{ acceso.tipoCelda(r.celda) ?? 'No disponible' }}</td>
                   <td>{{ r.celda }}</td>
                   <td>{{ r.entrada | date: 'dd/MM/yyyy HH:mm' }}</td>
                   <td>{{ r.comprobanteEntrada.numero }}</td>

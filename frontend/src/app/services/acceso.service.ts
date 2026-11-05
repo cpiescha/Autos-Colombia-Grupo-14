@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
+import { AuthService } from '../core/auth.service';
 import {
   Celda,
   Comprobante,
@@ -15,20 +16,15 @@ import {
   Vehiculo,
 } from '../models/models';
 
-const OPERARIO_ID = 1;
-const OPERARIO_NOMBRE = 'Diurno 1';
-const numero = (i: number): string => String(i + 1).padStart(2, '0');
 
-const crearCeldasIniciales = (): Celda[] => [
-  ...Array.from({ length: 70 }, (_, i): Celda => ({ codigo: `A-${numero(i)}`, tipoVehiculo: 'CARRO', estado: 'LIBRE' })),
-  ...Array.from({ length: 10 }, (_, i): Celda => ({ codigo: `M-${numero(i)}`, tipoVehiculo: 'MOTO', estado: 'LIBRE' })),
-];
 
 interface ApiCelda {
+  id: number;
   codigo: string;
-  categoria: string;
-  estado: string;
+  categoria: 'AUTOMOVIL' | 'MOTO';
+  estado: 'disponible' | 'ocupada' | 'inactiva';
   placa: string | null;
+  tiene_historial: boolean;
 }
 
 interface ApiMovimientoActivo {
@@ -89,18 +85,22 @@ function mapearTipo(tipo: string): TipoVehiculo {
   return tipo.toUpperCase().includes('MOTO') ? 'MOTO' : 'CARRO';
 }
 
-function mapearEstadoCelda(estado: string): 'LIBRE' | 'OCUPADA' {
-  return estado.toLowerCase() === 'ocupada' ? 'OCUPADA' : 'LIBRE';
+function mapearEstadoCelda(estado: ApiCelda['estado']): Celda['estado'] {
+  return estado === 'disponible' ? 'LIBRE' : estado === 'ocupada' ? 'OCUPADA' : 'INACTIVA';
 }
 
 @Injectable({ providedIn: 'root' })
 export class AccesoService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
+  readonly cargandoDatos = signal(false);
+  readonly errorDatos = signal('');
+  private carga?: Promise<boolean>;
   private readonly baseUrl = '/api';
 
   private readonly cacheVehiculos = new Map<string, Vehiculo>();
 
-  readonly celdas = signal<Celda[]>(crearCeldasIniciales());
+  readonly celdas = signal<Celda[]>([]);
   readonly registros = signal<RegistroAcceso[]>([]);
   readonly correcciones = signal<CorreccionAuditoria[]>([]);
 
@@ -108,19 +108,21 @@ export class AccesoService {
   readonly libres = computed(() => this.celdas().filter((c) => c.estado === 'LIBRE').length);
   readonly ocupadas = computed(() => this.celdas().filter((c) => c.estado === 'OCUPADA').length);
 
-  constructor() {
-    this.cargarDatos();
-  }
-
   normalizar(placa: string): string {
     return placa.trim().toUpperCase().replace(/\s+/g, '');
   }
 
-  async cargarDatos(): Promise<void> {
+  cargarDatos(): Promise<boolean> {
+    return this.carga ??= this.actualizarDatos().finally(() => { this.carga = undefined; });
+  }
+
+  private async actualizarDatos(): Promise<boolean> {
+    this.cargandoDatos.set(true);
+    this.errorDatos.set('');
     try {
       const [celdasApi, movimientosApi] = await Promise.all([
-        firstValueFrom(this.http.get<ApiCelda[]>(`${this.baseUrl}/celdas`)),
-        firstValueFrom(this.http.get<ApiMovimientoActivo[]>(`${this.baseUrl}/movimientos/activos`)),
+        firstValueFrom(this.http.get<ApiCelda[]>(`${this.baseUrl}/celdas`).pipe(timeout(15000))),
+        firstValueFrom(this.http.get<ApiMovimientoActivo[]>(`${this.baseUrl}/movimientos/activos`).pipe(timeout(15000))),
       ]);
 
       const celdasMapeadas: Celda[] = celdasApi.map((c) => ({
@@ -132,13 +134,13 @@ export class AccesoService {
 
       const registrosMapeados: RegistroAcceso[] = movimientosApi.map((m) => {
         const fechaEntrada = new Date(m.fecha_entrada);
-        const numComprobante = m.comprobante || `AC-${m.placa}`;
+        const numComprobante = m.comprobante ?? 'No disponible';
         return {
           id: m.permanencia_id,
           placa: m.placa,
           celda: m.celda,
           entrada: fechaEntrada,
-          operario: OPERARIO_NOMBRE,
+          operario: undefined,
           comprobanteEntrada: {
             numero: numComprobante,
             tipo: 'ENTRADA' as TipoComprobante,
@@ -147,8 +149,12 @@ export class AccesoService {
         };
       });
       this.registros.set(registrosMapeados);
+      return true;
     } catch (err) {
-      console.warn('Backend aún no responde en /api:', err);
+      this.errorDatos.set(this.mensajeError(err));
+      return false;
+    } finally {
+      this.cargandoDatos.set(false);
     }
   }
 
@@ -176,6 +182,7 @@ export class AccesoService {
       this.cacheVehiculos.set(norm, v);
       return v;
     } catch {
+      // Vehicle details enrich the correction screen but are not required to correct a cell.
       return undefined;
     }
   }
@@ -186,7 +193,9 @@ export class AccesoService {
       return { estado: 'NO_REGISTRADO', mensaje: 'Escriba una placa para consultar.' };
     }
 
-    await this.cargarDatos();
+    if (!await this.cargarDatos()) {
+      return { estado: 'NO_REGISTRADO', mensaje: this.errorDatos() };
+    }
 
     try {
       const vApi = await firstValueFrom(
@@ -232,8 +241,8 @@ export class AccesoService {
         };
       }
 
-      const delTipo = this.celdas().filter((c) => c.tipoVehiculo === vehiculo.tipo);
-      if (delTipo.length > 0 && !delTipo.some((c) => c.estado === 'LIBRE')) {
+      const delTipo = this.celdas().filter((c) => c.tipoVehiculo === vehiculo.tipo && c.estado !== 'INACTIVA');
+      if (!delTipo.some((c) => c.estado === 'LIBRE')) {
         const etiqueta = vehiculo.tipo === 'MOTO' ? 'motos' : 'automóviles';
         return {
           estado: 'SIN_CUPO',
@@ -252,7 +261,7 @@ export class AccesoService {
       }
       return {
         estado: 'NO_REGISTRADO',
-        mensaje: err?.error?.detail || err?.error?.message || 'Error al consultar el vehículo.',
+        mensaje: this.mensajeError(err),
       };
     }
   }
@@ -263,7 +272,6 @@ export class AccesoService {
       const res = await firstValueFrom(
         this.http.post<ApiEntradaResponse>(`${this.baseUrl}/entradas`, {
           placa: norm,
-          operario_id: OPERARIO_ID,
         })
       );
 
@@ -273,7 +281,7 @@ export class AccesoService {
         placa: res.placa,
         celda: res.celda,
         entrada: fechaEntrada,
-        operario: OPERARIO_NOMBRE,
+        operario: this.auth.sesion()?.nombre,
         comprobanteEntrada: {
           numero: res.comprobante,
           tipo: 'ENTRADA',
@@ -287,7 +295,7 @@ export class AccesoService {
 
       return { ok: true, mensaje: 'Entrada registrada correctamente.', dato: registro };
     } catch (err: any) {
-      const mensaje = err?.error?.message || 'No fue posible registrar la entrada.';
+      const mensaje = this.mensajeError(err);
       return { ok: false, mensaje };
     }
   }
@@ -313,7 +321,7 @@ export class AccesoService {
         },
       };
     } catch (err: any) {
-      return { ok: false, mensaje: err?.error?.message || err?.error?.detail || 'Comprobante inválido.' };
+      return { ok: false, mensaje: this.mensajeError(err) };
     }
   }
 
@@ -327,7 +335,6 @@ export class AccesoService {
       const res = await firstValueFrom(
         this.http.post<ApiSalidaResponse>(`${this.baseUrl}/salidas`, {
           comprobante: codigoComprobante,
-          operario_id: OPERARIO_ID,
         })
       );
 
@@ -339,23 +346,19 @@ export class AccesoService {
         celda: res.celda,
         entrada: fechaEntrada,
         salida: fechaSalida,
-        operario: OPERARIO_NOMBRE,
+        operario: this.auth.sesion()?.nombre,
         comprobanteEntrada: {
           numero: codigoComprobante,
           tipo: 'ENTRADA',
           fechaEmision: fechaEntrada,
         },
-        comprobanteSalida: {
-          numero: `SAL-${res.permanencia_id}`,
-          tipo: 'SALIDA',
-          fechaEmision: fechaSalida,
-        },
+
       };
 
       await this.cargarDatos();
       return { ok: true, mensaje: 'Salida registrada. La celda quedó libre.', dato: cerrado };
     } catch (err: any) {
-      const mensaje = err?.error?.message || err?.error?.detail || 'No fue posible registrar la salida.';
+      const mensaje = this.mensajeError(err);
       return { ok: false, mensaje };
     }
   }
@@ -379,7 +382,7 @@ export class AccesoService {
     } catch (err: any) {
       return {
         ok: false,
-        mensaje: err?.error?.message || err?.error?.detail || 'No fue posible cargar el reporte.',
+        mensaje: this.mensajeError(err),
       };
     }
   }
@@ -397,8 +400,23 @@ export class AccesoService {
   celdasCompatibles(idRegistro: number): Celda[] {
     const registro = this.registros().find((r) => r.id === idRegistro && !r.salida);
     if (!registro) return [];
-    const tipo: TipoVehiculo = registro.celda.startsWith('M') ? 'MOTO' : 'CARRO';
+    const tipo = this.tipoCelda(registro.celda);
+    if (!tipo) return [];
     return this.celdas().filter((c) => c.estado === 'LIBRE' && c.tipoVehiculo === tipo);
+  }
+
+  tipoCelda(codigo: string): TipoVehiculo | undefined {
+    return this.celdas().find(c => c.codigo === codigo)?.tipoVehiculo;
+  }
+
+  private mensajeError(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const detalle = error.error?.message ?? error.error?.detail;
+      if (typeof detalle === 'string') return detalle;
+      if (error.status === 401) return 'La sesión venció. Inicie sesión nuevamente.';
+      if (error.status === 403) return 'No tiene permisos para esta operación.';
+    }
+    return 'No fue posible completar la solicitud. Intente nuevamente.';
   }
 
   async corregirCelda(idRegistro: number, codigoNuevo: string): Promise<Resultado<CorreccionAuditoria>> {
@@ -408,6 +426,9 @@ export class AccesoService {
     }
     const anterior = registro.celda;
     const nueva = codigoNuevo.trim().toUpperCase();
+    if (!this.celdasCompatibles(idRegistro).some(c => c.codigo === nueva)) {
+      return { ok: false, mensaje: 'Seleccione una celda activa, libre y compatible. El servidor validará la disponibilidad al guardar.' };
+    }
     if (nueva === anterior) {
       return { ok: false, mensaje: 'La nueva celda debe ser diferente a la actual.' };
     }
@@ -418,7 +439,6 @@ export class AccesoService {
           `${this.baseUrl}/movimientos/${idRegistro}/celda`,
           {
             celda: nueva,
-            operario_id: OPERARIO_ID,
           }
         )
       );
@@ -428,7 +448,7 @@ export class AccesoService {
         placa: registro.placa,
         celdaAnterior: res.celda_anterior,
         celdaNueva: res.celda_nueva,
-        operario: OPERARIO_NOMBRE,
+        operario: this.auth.sesion()?.nombre,
         fecha: new Date(res.fecha_correccion),
       };
 
@@ -441,7 +461,7 @@ export class AccesoService {
         dato: auditoria,
       };
     } catch (err: any) {
-      const mensaje = err?.error?.message || 'No fue posible corregir la celda.';
+      const mensaje = this.mensajeError(err);
       return { ok: false, mensaje };
     }
   }

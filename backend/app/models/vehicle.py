@@ -1,4 +1,4 @@
-from sqlalchemy import Enum, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, String, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base
@@ -7,6 +7,9 @@ from app.models.enums import VehicleType
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
+    __table_args__ = (
+        CheckConstraint("license_plate = upper(trim(license_plate)) AND length(license_plate) > 0", name="ck_vehicle_plate_normalized"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     license_plate: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
@@ -17,6 +20,7 @@ class Vehicle(Base):
     brand: Mapped[str] = mapped_column(String(80), nullable=False)
     model: Mapped[str] = mapped_column(String(80), nullable=False)
     color: Mapped[str] = mapped_column(String(40), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
 
     client: Mapped["Client"] = relationship(back_populates="vehicles")

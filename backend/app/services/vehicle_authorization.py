@@ -90,6 +90,9 @@ class VehicleAuthorizationService:
             has_open_stay=has_open_stay,
         )
 
+        if not getattr(vehicle, "active", True):
+            rejection_reason = "El vehículo está retirado."
+
         return VehicleAuthorization(
             vehicle=vehicle,
             vehicle_type=vehicle_type,

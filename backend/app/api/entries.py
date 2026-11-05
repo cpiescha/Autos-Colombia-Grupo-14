@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from app.api.dependencies import get_entry_repository
+from app.api.dependencies import get_current_account, get_entry_repository
+from app.models import UserAccount
 from app.schemas.entry import EntryCreateRequest, EntryResponse, ErrorResponse
 from app.services.entry import EntryError, EntryRepository, EntryService
 
@@ -12,10 +13,11 @@ router = APIRouter(prefix="/api/entradas", tags=["entradas"])
 @router.post("", response_model=EntryResponse, status_code=status.HTTP_201_CREATED)
 def create_entry(
     request: EntryCreateRequest,
+    current_account: UserAccount = Depends(get_current_account),
     repository: EntryRepository = Depends(get_entry_repository),
 ) -> EntryResponse | JSONResponse:
     try:
-        result = EntryService(repository).create(request.placa, request.operario_id)
+        result = EntryService(repository).create(request.placa, current_account.operator_id)
     except EntryError as error:
         return _error_response(error.status_code, error.code, error.message)
     except Exception:

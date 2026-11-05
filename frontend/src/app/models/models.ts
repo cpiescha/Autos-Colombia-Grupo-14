@@ -1,5 +1,5 @@
 export type TipoVehiculo = 'CARRO' | 'MOTO';
-export type EstadoCelda = 'LIBRE' | 'OCUPADA' | 'MANTENIMIENTO';
+export type EstadoCelda = 'LIBRE' | 'OCUPADA' | 'MANTENIMIENTO' | 'INACTIVA';
 export type TipoComprobante = 'ENTRADA' | 'SALIDA';
 
 export interface Vehiculo {
@@ -29,7 +29,7 @@ export interface RegistroAcceso {
   celda: string;
   entrada: Date;
   salida?: Date;
-  operario: string;
+  operario?: string;
   comprobanteEntrada: Comprobante;
   comprobanteSalida?: Comprobante;
 }
@@ -54,7 +54,7 @@ export interface CorreccionAuditoria {
   placa: string;
   celdaAnterior: string;
   celdaNueva: string;
-  operario: string;
+  operario?: string;
   fecha: Date;
 }
 
