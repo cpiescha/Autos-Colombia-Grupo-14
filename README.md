@@ -36,7 +36,7 @@ La Iteración 2 agrega autenticación con token firmado, administración de oper
 - **Administración de celdas**: alta, cambio de estado (activa/inactiva) y baja. Una celda con historial no se elimina físicamente: se inactiva para conservar auditoría.
 - **Administración de operadores**: alta, listado y anulación lógica. Las cuentas anuladas conservan el historial relacionado.
 - **Administración de vehículos y clientes**: consulta de clientes registrados y alta de vehículos asociados. No hay CRUD completo de clientes en esta entrega.
-- **Reportes**: consulta de movimientos y mensualidades vencidas.
+- **Reportes e historial**: consulta la ocupación actual y recupera desde PostgreSQL las permanencias cerradas con sus operadores, comprobantes y correcciones de celda, incluso después de recargar la aplicación.
 - **Auditoría**: cada entrada, corrección y salida persiste la cuenta responsable. Las cuentas anuladas pierden acceso aunque conserven un token no vencido.
 
 ## Perfiles y permisos
@@ -275,7 +275,7 @@ En una base con movimientos propios, consultar **Vehículos presentes** para obt
 2. Consultar una placa vigente o vencida.
 3. Registrar una entrada; la API asigna una celda compatible y emite el comprobante.
 4. Registrar la salida usando el comprobante y confirmar la vista previa.
-5. Revisar ocupación, vehículos presentes y reportes.
+5. Revisar ocupación, vehículos presentes y el historial de permanencias cerradas y correcciones.
 6. Corregir la celda de una permanencia abierta desde **Vehículos presentes**.
 7. (Admin) Crear un operador y una celda, inactivarlos y verificar que las cuentas anuladas quedan sin acceso.
 
@@ -318,7 +318,9 @@ Una celda ocupada no puede inactivarse ni retirarse (`409 SPOT_OCCUPIED`). Las c
 - `POST /api/correcciones`: corrige la celda de una permanencia abierta.
 - `POST /api/salidas/preview`: vista previa de la salida.
 - `POST /api/salidas`: confirma la salida.
-- `GET /api/ocupacion`, `GET /api/vehiculos-presentes`, `GET /api/reportes/...`.
+- `GET /api/movimientos/activos`: lista las permanencias abiertas.
+- `GET /api/movimientos/historial`: recupera permanencias cerradas y sus correcciones persistidas.
+- `GET /api/reportes/ocupacion`: resume capacidad y ocupación actual.
 
 ---
 

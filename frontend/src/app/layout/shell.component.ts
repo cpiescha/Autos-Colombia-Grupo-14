@@ -68,7 +68,7 @@ export class ShellComponent {
     { ruta: '/salida', texto: 'Salida', icono: 'logout', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/ocupacion', texto: 'Ocupación', icono: 'grid_view', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/presentes', texto: 'Vehículos presentes', icono: 'directions_car', roles: ['ADMINISTRADOR', 'OPERADOR'] },
-    { ruta: '/reportes', texto: 'Reportes', icono: 'bar_chart', roles: ['ADMINISTRADOR'] },
+    { ruta: '/reportes', texto: 'Reportes', icono: 'bar_chart', roles: ['ADMINISTRADOR', 'OPERADOR'] },
   ];
 
   menu = computed(() => this.items.filter((i) => i.roles.includes(this.auth.rol()!)));

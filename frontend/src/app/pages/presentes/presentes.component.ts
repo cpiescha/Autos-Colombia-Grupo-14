@@ -21,7 +21,7 @@ import { AccesoService } from '../../services/acceso.service';
       } @else {
         <div class="scroll">
           <table>
-            <thead><tr><th>Placa</th><th>Tipo</th><th>Celda</th><th>Entrada</th><th>Comprobante</th><th>Acción</th></tr></thead>
+            <thead><tr><th>Placa</th><th>Tipo</th><th>Celda</th><th>Entrada</th><th>Responsable</th><th>Comprobante</th><th>Acción</th></tr></thead>
             <tbody>
               @for (r of acceso.activos(); track r.id) {
                 <tr>
@@ -29,6 +29,7 @@ import { AccesoService } from '../../services/acceso.service';
                   <td>{{ acceso.tipoCelda(r.celda) ?? 'No disponible' }}</td>
                   <td>{{ r.celda }}</td>
                   <td>{{ r.entrada | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ r.operario || 'No disponible' }}</td>
                   <td>{{ r.comprobanteEntrada.numero }}</td>
                   <td><a class="accion" [routerLink]="['/correccion', r.id]">Corregir celda</a></td>
                 </tr>

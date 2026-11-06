@@ -139,6 +139,18 @@ def test_permissions_audit_session_invalidation_and_iteration1_regression(runtim
     preview = runtime.request("GET", f"/api/salidas/comprobantes/{entry['comprobante']}", token=op1)
     assert preview["placa"] == "T26R01"
     runtime.request("POST", "/api/salidas", {"comprobante": entry["comprobante"]}, op1)
+    history = runtime.request("GET", "/api/movimientos/historial", token=op1)
+    historical_movement = next(item for item in history if item["placa"] == "T26R01")
+    assert historical_movement["operario_entrada"] == "Operario Diurno 1"
+    assert historical_movement["operario_salida"] == "Operario Diurno 1"
+    assert historical_movement["correcciones"] == [
+        {
+            "celda_anterior": entry["celda"],
+            "celda_nueva": target["codigo"],
+            "operario": "Operario Diurno 2",
+            "fecha_correccion": historical_movement["correcciones"][0]["fecha_correccion"],
+        }
+    ]
 
     audit = runtime.sql(
         "SELECT entry_account.username,correction_account.username,exit_account.username,r.used_at IS NOT NULL,s.exited_at IS NOT NULL "

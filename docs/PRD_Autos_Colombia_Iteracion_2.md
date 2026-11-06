@@ -212,7 +212,7 @@ Incorporar autenticación, autorización por perfil, auditoría operativa y admi
 | `Vehicle` | Campos de Iteración 1 más estado si se requiere retiro lógico | Vehículo registrado |
 | `ParkingStay` | Datos de Iteración 1 y responsables autenticados | Entrada y salida auditables |
 | `CellCorrection` | Datos de corrección y usuario responsable | Auditoría de ubicación |
-| `AuditEvent` | `actor_account_id`, `action`, `entity_type`, `entity_id`, `occurred_at` | Cambios administrativos relevantes |
+| `VehicleAudit` | `vehicle_id`, `account_id`, `action`, estados anterior/nuevo, `occurred_at` | Auditoría implementada para altas, modificaciones y retiros de vehículos |
 
 ## 11. Contrato REST previsto
 
@@ -232,7 +232,7 @@ Incorporar autenticación, autorización por perfil, auditoría operativa y admi
 | `PATCH` | `/api/celdas/{id}` | Administrador | Cambiar datos o estado permitido |
 | `DELETE` | `/api/celdas/{id}` | Administrador | Retirar celda sin historial |
 
-Las rutas de entrada, salida, ocupación, movimientos, reportes y corrección de Iteración 1 permanecen, pero requieren sesión autenticada y obtienen el responsable desde ella.
+Las rutas de entrada, salida, ocupación, movimientos, reportes y corrección de Iteración 1 permanecen, pero requieren sesión autenticada y obtienen el responsable desde ella. La consulta histórica se expone mediante `GET /api/movimientos/historial`, que devuelve las permanencias cerradas junto con sus responsables, comprobante y correcciones persistidas.
 
 ## 12. Respuestas de seguridad
 

@@ -7,6 +7,7 @@ import {
   Comprobante,
   ConsultaEntrada,
   CorreccionAuditoria,
+  MovimientoHistorico,
   RegistroAcceso,
   ReporteOcupacion,
   Resultado,
@@ -32,6 +33,7 @@ interface ApiMovimientoActivo {
   placa: string;
   celda: string;
   fecha_entrada: string;
+  operario_entrada: string;
   comprobante?: string | null;
 }
 
@@ -63,6 +65,23 @@ interface ApiSalidaPreview {
 
 interface ApiSalidaResponse extends ApiSalidaPreview {
   fecha_salida: string;
+}
+
+interface ApiMovimientoHistorico {
+  permanencia_id: number;
+  placa: string;
+  celda_final: string;
+  fecha_entrada: string;
+  fecha_salida: string;
+  comprobante?: string | null;
+  operario_entrada: string;
+  operario_salida: string;
+  correcciones: Array<{
+    celda_anterior: string;
+    celda_nueva: string;
+    operario: string;
+    fecha_correccion: string;
+  }>;
 }
 
 interface ApiReporteOcupacion {
@@ -140,7 +159,7 @@ export class AccesoService {
           placa: m.placa,
           celda: m.celda,
           entrada: fechaEntrada,
-          operario: undefined,
+          operario: m.operario_entrada,
           comprobanteEntrada: {
             numero: numComprobante,
             tipo: 'ENTRADA' as TipoComprobante,
@@ -363,6 +382,36 @@ export class AccesoService {
     }
   }
 
+  async obtenerHistorialMovimientos(): Promise<Resultado<MovimientoHistorico[]>> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<ApiMovimientoHistorico[]>(`${this.baseUrl}/movimientos/historial`)
+      );
+      return {
+        ok: true,
+        mensaje: 'Historial actualizado.',
+        dato: response.map((movement) => ({
+          permanenciaId: movement.permanencia_id,
+          placa: movement.placa,
+          celdaFinal: movement.celda_final,
+          fechaEntrada: new Date(movement.fecha_entrada),
+          fechaSalida: new Date(movement.fecha_salida),
+          comprobante: movement.comprobante ?? undefined,
+          operarioEntrada: movement.operario_entrada,
+          operarioSalida: movement.operario_salida,
+          correcciones: movement.correcciones.map((correction) => ({
+            celdaAnterior: correction.celda_anterior,
+            celdaNueva: correction.celda_nueva,
+            operario: correction.operario,
+            fechaCorreccion: new Date(correction.fecha_correccion),
+          })),
+        })),
+      };
+    } catch (err: any) {
+      return { ok: false, mensaje: this.mensajeError(err) };
+    }
+  }
+
   async obtenerReporteOcupacion(): Promise<Resultado<ReporteOcupacion>> {
     try {
       const res = await firstValueFrom(
@@ -426,9 +475,6 @@ export class AccesoService {
     }
     const anterior = registro.celda;
     const nueva = codigoNuevo.trim().toUpperCase();
-    if (!this.celdasCompatibles(idRegistro).some(c => c.codigo === nueva)) {
-      return { ok: false, mensaje: 'Seleccione una celda activa, libre y compatible. El servidor validará la disponibilidad al guardar.' };
-    }
     if (nueva === anterior) {
       return { ok: false, mensaje: 'La nueva celda debe ser diferente a la actual.' };
     }

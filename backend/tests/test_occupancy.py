@@ -13,9 +13,18 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies import get_current_account
 from app.api.occupancy import router
+from app.api.parking_spots import router as parking_spots_router
 from app.db.base import Base
 from app.db.session import get_db
-from app.models import Client, Operator, ParkingSpot, ParkingStay, Vehicle
+from app.models import (
+    CellCorrection,
+    Client,
+    Operator,
+    ParkingSpot,
+    ParkingStay,
+    Receipt,
+    Vehicle,
+)
 from app.models.enums import SpotCategory, VehicleType
 
 
@@ -38,6 +47,7 @@ def session() -> Generator[Session, None, None]:
 def client(session: Session) -> Generator[TestClient, None, None]:
     app = FastAPI()
     app.include_router(router)
+    app.include_router(parking_spots_router)
 
     def get_test_db() -> Generator[Session, None, None]:
         yield session
@@ -152,13 +162,23 @@ def test_open_stays_define_cell_status_and_active_movements_in_stable_order(
     )
     session.commit()
 
+    cells = client.get("/api/celdas")
     movements = client.get("/api/movimientos/activos")
     report = client.get("/api/reportes/ocupacion")
+
+    assert cells.status_code == 200
+    cells_by_code = {cell["codigo"]: cell for cell in cells.json()}
+    assert cells_by_code["A-02"]["estado"] == "inactiva"
+    assert cells_by_code["A-02"]["placa"] is None
 
     movement_data = movements.json()
     assert [movement["placa"] for movement in movement_data] == ["CAR001", "MOT001"]
     assert [movement["celda"] for movement in movement_data] == ["A-01", "M-02"]
     assert [movement["permanencia_id"] for movement in movement_data] == [2, 1]
+    assert [movement["operario_entrada"] for movement in movement_data] == [
+        "Operario de prueba",
+        "Operario de prueba",
+    ]
     assert [
         datetime.fromisoformat(movement["fecha_entrada"]).astimezone(timezone.utc)
         for movement in movement_data
@@ -170,6 +190,88 @@ def test_open_stays_define_cell_status_and_active_movements_in_stable_order(
         "automovil": {"capacidad": 1, "ocupadas": 1, "disponibles": 0},
         "total": {"capacidad": 3, "ocupadas": 2, "disponibles": 1},
     }
+
+
+def test_history_returns_closed_stays_and_persisted_corrections_after_reload(
+    client: TestClient, session: Session
+) -> None:
+    create_parking_data(session)
+    spots = {spot.code: spot for spot in session.query(ParkingSpot).all()}
+    vehicles = {vehicle.license_plate: vehicle for vehicle in session.query(Vehicle).all()}
+    operator = session.query(Operator).one()
+    entered_at = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    corrected_at = datetime(2026, 1, 1, 12, 30, tzinfo=timezone.utc)
+    exited_at = datetime(2026, 1, 1, 13, 0, tzinfo=timezone.utc)
+    stay = ParkingStay(
+        vehicle_id=vehicles["HIS001"].id,
+        parking_spot_id=spots["A-02"].id,
+        entry_operator_id=operator.id,
+        entered_at=entered_at,
+        exit_operator_id=operator.id,
+        exited_at=exited_at,
+    )
+    session.add(stay)
+    session.flush()
+    session.add_all(
+        [
+            Receipt(code="HISTORICO-001", parking_stay_id=stay.id, used_at=exited_at),
+            CellCorrection(
+                parking_stay_id=stay.id,
+                previous_spot_id=spots["A-01"].id,
+                new_spot_id=spots["A-02"].id,
+                operator_id=operator.id,
+                corrected_at=corrected_at,
+            ),
+        ]
+    )
+    session.commit()
+
+    response = client.get("/api/movimientos/historial")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "permanencia_id": stay.id,
+            "placa": "HIS001",
+            "celda_final": "A-02",
+            "fecha_entrada": entered_at.isoformat().replace("+00:00", "Z"),
+            "fecha_salida": exited_at.isoformat().replace("+00:00", "Z"),
+            "comprobante": "HISTORICO-001",
+            "operario_entrada": "Operario de prueba",
+            "operario_salida": "Operario de prueba",
+            "correcciones": [
+                {
+                    "celda_anterior": "A-01",
+                    "celda_nueva": "A-02",
+                    "operario": "Operario de prueba",
+                    "fecha_correccion": corrected_at.isoformat().replace("+00:00", "Z"),
+                }
+            ],
+        }
+    ]
+
+
+def test_history_excludes_open_stays(
+    client: TestClient, session: Session
+) -> None:
+    create_parking_data(session)
+    spots = {spot.code: spot for spot in session.query(ParkingSpot).all()}
+    vehicles = {vehicle.license_plate: vehicle for vehicle in session.query(Vehicle).all()}
+    operator = session.query(Operator).one()
+    session.add(
+        ParkingStay(
+            vehicle_id=vehicles["CAR001"].id,
+            parking_spot_id=spots["A-01"].id,
+            entry_operator_id=operator.id,
+            entered_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    session.commit()
+
+    response = client.get("/api/movimientos/historial")
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_occupancy_report_has_category_counts_and_consistent_totals(
@@ -213,6 +315,7 @@ def test_occupancy_report_has_category_counts_and_consistent_totals(
     ("path", "method_name"),
     [
         ("/api/movimientos/activos", "list_active_movements"),
+        ("/api/movimientos/historial", "list_movement_history"),
         ("/api/reportes/ocupacion", "occupancy_report"),
     ],
 )

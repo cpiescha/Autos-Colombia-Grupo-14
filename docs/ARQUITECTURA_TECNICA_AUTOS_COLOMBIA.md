@@ -40,6 +40,7 @@ Este documento define la arquitectura conjunta para la gestión de entrada y sal
 - Generación de comprobante único.
 - Registro transaccional de salida.
 - Consulta de disponibilidad, ocupación y vehículos presentes.
+- Consulta histórica de permanencias cerradas y sus correcciones persistidas.
 - Corrección auditada de una celda.
 - Datos precargados para clientes, vehículos, mensualidades, operarios y celdas.
 - Inicio y cierre de sesión con cuentas internas.
@@ -193,7 +194,7 @@ flowchart TB
 
     subgraph COMPOSE[Red Docker Compose]
         FRONT[frontend\nAngular dev server\npuerto host 4200]
-        BACK[backend\nUvicorn + FastAPI\npuerto host 8000]
+        BACK[backend\nUvicorn + FastAPI\npuerto host 8080]
         DB[db\nPostgreSQL 16\npuerto interno 5432]
         VOL[(postgres_data)]
 
@@ -203,15 +204,15 @@ flowchart TB
     end
 
     HOST -->|http://localhost:4200| FRONT
-    HOST -->|http://localhost:8000/docs| BACK
+    HOST -->|http://localhost:8080/docs| BACK
 ```
 
 ### 6.1 Servicios de Docker Compose
 
 | Servicio | Imagen/base | Puerto | Dependencias | Persistencia |
 |---|---|---|---|---|
-| `frontend` | Node compatible con Angular 22 | `4200:4200` | `backend` | Código montado para desarrollo |
-| `backend` | Python 3.12 | `8000:8000` | `db` saludable | Código montado para desarrollo |
+| `frontend` | Node compatible con Angular 22 | `4200:4200` | `backend` saludable | Imagen construida desde `frontend/` |
+| `backend` | Python 3.12 | `8080:8000` | `db` saludable | Imagen construida desde `backend/` |
 | `db` | `postgres:16` | Solo `5432` interno por defecto | Ninguna | Volumen `postgres_data` |
 
 El navegador siempre llama a `/api`. Durante desarrollo, el servidor de Angular redirige ese prefijo a `http://backend:8000`, evitando que el navegador intente resolver el nombre interno `backend` y reduciendo problemas de CORS.
@@ -303,6 +304,7 @@ Angular se organiza por funcionalidades. Se usarán componentes standalone, form
 | `/salida` | Registrar salida | Consultar comprobante y confirmar retiro |
 | `/ocupacion` | Celdas | Mostrar disponibles y ocupadas por tipo |
 | `/movimientos-activos` | Vehículos presentes | Listar permanencias abiertas |
+| `/reportes` | Reportes e historial | Mostrar ocupación actual y permanencias cerradas con sus correcciones |
 | `/correccion-celda/:id` | Corregir celda | Seleccionar una celda compatible disponible |
 
 ### 8.3 Separación entre presentación e integración
@@ -336,9 +338,9 @@ Cada pantalla debe manejar explícitamente los estados `inicial`, `cargando`, `�
 - `EntryService`: valida autorización, usa la cuenta autenticada como responsable, bloquea y asigna una celda activa, crea permanencia y comprobante.
 - `ExitService`: valida comprobante, cierra permanencia y marca el comprobante como usado.
 - `OccupancyService`: calcula disponibilidad desde permanencias abiertas.
-- `ReportService`: consolida registrados, presentes y capacidad.
+- `OccupancyService`: consolida registrados, presentes y capacidad, y recupera permanencias cerradas con sus correcciones.
 - `CellCorrectionService`: cambia la celda bajo bloqueo, exige una celda activa y registra auditoría.
-- `AuditService`: conserva actor, acción, entidad y momento de los cambios administrativos relevantes.
+- `VehicleAdminService`: conserva auditoría de altas, modificaciones y retiros de vehículos.
 
 Las excepciones de negocio se traducen a respuestas HTTP en la capa API, no dentro de los modelos SQLAlchemy.
 
@@ -351,12 +353,13 @@ erDiagram
     VEHICLE ||--o{ PARKING_STAY : records
     PARKING_SPOT ||--o{ PARKING_STAY : assigned_to
     OPERATOR ||--|| USER_ACCOUNT : authenticates_as
-    USER_ACCOUNT ||--o{ PARKING_STAY : registers
+    OPERATOR ||--o{ PARKING_STAY : registers_entry
+    OPERATOR o|--o{ PARKING_STAY : registers_exit
     PARKING_STAY ||--|| RECEIPT : generates
     PARKING_STAY ||--o{ CELL_CORRECTION : audits
-    PARKING_SPOT ||--o{ CELL_CORRECTION : previous_or_new
-    USER_ACCOUNT ||--o{ CELL_CORRECTION : performs
-    USER_ACCOUNT ||--o{ AUDIT_EVENT : produces
+    PARKING_SPOT ||--o{ CELL_CORRECTION : previous_spot
+    PARKING_SPOT ||--o{ CELL_CORRECTION : new_spot
+    OPERATOR ||--o{ CELL_CORRECTION : performs
 ```
 
 ### 10.1 Entidades mínimas
@@ -369,10 +372,10 @@ erDiagram
 | `parking_spots` | `id`, `code`, `category`, `active`, timestamps | Código único; categoría moto o automóvil; solo las activas se asignan |
 | `operators` | `id`, `name` | Datos laborales básicos del empleado |
 | `user_accounts` | `id`, `operator_id`, `username`, `password_hash`, `role`, `active`, timestamps | Usuario único; rol administrador u operador; contraseña nunca en texto plano |
-| `parking_stays` | `id`, `vehicle_id`, `parking_spot_id`, `entry_account_id`, `entered_at`, `exit_account_id`, `exited_at` | Una permanencia abierta por vehículo y por celda; responsables autenticados |
+| `parking_stays` | `id`, `vehicle_id`, `parking_spot_id`, `entry_operator_id`, `entered_at`, `exit_operator_id`, `exited_at` | Una permanencia abierta por vehículo y por celda; el operador y la fecha de salida son opcionales hasta cerrar el movimiento |
 | `receipts` | `id`, `code`, `parking_stay_id`, `used_at` | Código único y un comprobante por permanencia |
-| `cell_corrections` | `id`, `parking_stay_id`, `previous_spot_id`, `new_spot_id`, `account_id`, `corrected_at` | Conserva trazabilidad de cada cambio |
-| `audit_events` | `id`, `actor_account_id`, `action`, `entity_type`, `entity_id`, `occurred_at` | Auditoría de cambios administrativos relevantes |
+| `cell_corrections` | `id`, `parking_stay_id`, `previous_spot_id`, `new_spot_id`, `operator_id`, `corrected_at` | Conserva por separado la celda anterior, la celda nueva, el responsable y el momento |
+| `vehicle_audits` | `id`, `vehicle_id`, `account_id`, `action`, estados, `occurred_at` | Auditoría de altas, modificaciones y retiros de vehículos |
 
 ### 10.2 Invariantes en PostgreSQL
 
@@ -456,6 +459,7 @@ Todas las rutas usan el prefijo `/api`. Las fechas se serializan en ISO 8601 y l
 | `PATCH` | `/api/celdas/{id}` | Celda actualizada, anulada o reactivada | `403`; `404`; `409` celda ocupada |
 | `DELETE` | `/api/celdas/{id}` | Celda nueva sin historial retirada | `403`; `404`; `409` celda referenciada |
 | `GET` | `/api/movimientos/activos` | Permanencias abiertas | `200` con lista vacía |
+| `GET` | `/api/movimientos/historial` | Permanencias cerradas, responsables, comprobante y correcciones | `200` con lista vacía |
 | `GET` | `/api/reportes/ocupacion` | Totales por categoría | Error de infraestructura controlado |
 | `PATCH` | `/api/movimientos/{id}/celda` | Asignación corregida | `404` movimiento; `409` celda incompatible u ocupada |
 | `GET` | `/health` | Estado del backend | `503` si una dependencia obligatoria falla |
@@ -596,7 +600,7 @@ Se ejecutan contra FastAPI y PostgreSQL reales. Para los recorridos completos ta
 | PI-10 | Celda inactiva | Consultar disponibilidad y registrar una entrada | La celda no aparece disponible ni puede ser asignada |
 | PI-11 | Sesión anulada durante uso | Anular una cuenta que conserva un token vigente e intentar operar | La siguiente operación responde `401` y no cambia datos |
 | PI-12 | Contrato Angular–FastAPI | Ejecutar login, navegación y una operación permitida y otra prohibida | Métodos, rutas, DTO y mensajes coinciden con el contrato REST |
-| PI-13 | Regresión Iteración 1 | Ejecutar entrada, salida, ocupación, reportes y corrección de celda | Los flujos anteriores continúan funcionando con usuario autenticado |
+| PI-13 | Regresión Iteración 1 | Ejecutar entrada, corrección, salida, recargar y consultar el historial | La permanencia cerrada y sus correcciones se recuperan desde PostgreSQL con los responsables correctos |
 | PI-14 | Persistencia | Reiniciar frontend y backend sin eliminar el volumen de PostgreSQL | Las cuentas, celdas, vehículos y movimientos permanecen |
 | PI-15 | Arranque limpio | Clonar, configurar variables y ejecutar `docker compose up --build` | Los tres servicios quedan disponibles sin pasos manuales no documentados |
 
@@ -657,12 +661,12 @@ El plan se considera aprobado cuando las pruebas unitarias, de integración, reg
 | RNF-01 y RNF-03 | PostgreSQL, `FOR UPDATE SKIP LOCKED` y transacciones |
 | RNF-04 | Angular Material y estados explícitos de interfaz |
 | RNF-05 | comprobante único, validación backend y secretos por entorno |
-| RNF-06 | permanencias, operadores y auditoría de correcciones |
+| RNF-06 | `GET /api/movimientos/historial`, pantalla Reportes e historial y relaciones persistentes de permanencias/correcciones |
 | RNF-07 | monolito modular con dependencias unidireccionales |
 | RNF-08 y RNF-09 | Docker Compose y volumen `postgres_data` |
 | RNF-10 | versiones tecnológicas fijadas en este documento |
 | RF-I2-01 a RF-I2-05 | AuthService, sesión, guards Angular y dependencias de autorización FastAPI |
-| RF-I2-06 a RF-I2-09 | UserAccount, OperatorAdminService y AuditService |
+| RF-I2-06 a RF-I2-09 | UserAccount, OperatorAdminService, responsables en ParkingStay/CellCorrection y VehicleAudit; la auditoría administrativa general no tiene una tabla separada en esta versión |
 | RF-I2-10 a RF-I2-14 | VehicleService autorizado y responsables derivados de sesión |
 | RF-I2-15 a RF-I2-22 | ParkingSpotAdminService, `parking_spots.active` y asignación concurrente filtrada |
 | RNF-I2-01 a RNF-I2-07 | hash de contraseñas, secreto por entorno, `401/403`, auditoría e inactivación lógica |

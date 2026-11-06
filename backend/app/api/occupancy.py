@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_account
 from app.db.session import get_db
 from app.schemas.occupancy import (
+    CorreccionHistoricaResponse,
     MovimientoActivoResponse,
+    MovimientoHistoricoResponse,
     ReporteOcupacionResponse,
     TotalesOcupacionResponse,
 )
@@ -27,6 +29,35 @@ def list_active_movements(
         return [
             MovimientoActivoResponse(**movement.__dict__)
             for movement in OccupancyService(db).list_active_movements()
+        ]
+    except Exception:
+        return _query_error_response()
+
+
+@router.get(
+    "/api/movimientos/historial",
+    response_model=list[MovimientoHistoricoResponse],
+)
+def list_movement_history(
+    db: Session = Depends(get_db),
+) -> list[MovimientoHistoricoResponse] | JSONResponse:
+    try:
+        return [
+            MovimientoHistoricoResponse(
+                permanencia_id=movement.permanencia_id,
+                placa=movement.placa,
+                celda_final=movement.celda_final,
+                fecha_entrada=movement.fecha_entrada,
+                fecha_salida=movement.fecha_salida,
+                comprobante=movement.comprobante,
+                operario_entrada=movement.operario_entrada,
+                operario_salida=movement.operario_salida,
+                correcciones=[
+                    CorreccionHistoricaResponse(**correction.__dict__)
+                    for correction in movement.correcciones
+                ],
+            )
+            for movement in OccupancyService(db).list_movement_history()
         ]
     except Exception:
         return _query_error_response()

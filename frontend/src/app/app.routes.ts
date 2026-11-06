@@ -90,8 +90,8 @@ export const routes: Routes = [
         path: 'reportes',
         component: ReportesComponent,
         canActivate: [rolGuard],
-        data: ADMIN,
-        title: 'Reporte de ocupación',
+        data: AMBOS,
+        title: 'Reportes e historial',
       },
       {
         path: 'operadores',

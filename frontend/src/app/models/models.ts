@@ -71,6 +71,25 @@ export interface TotalesOcupacion {
   disponibles: number;
 }
 
+export interface CorreccionHistorica {
+  celdaAnterior: string;
+  celdaNueva: string;
+  operario: string;
+  fechaCorreccion: Date;
+}
+
+export interface MovimientoHistorico {
+  permanenciaId: number;
+  placa: string;
+  celdaFinal: string;
+  fechaEntrada: Date;
+  fechaSalida: Date;
+  comprobante?: string;
+  operarioEntrada: string;
+  operarioSalida: string;
+  correcciones: CorreccionHistorica[];
+}
+
 export interface ReporteOcupacion {
   vehiculosRegistrados: number;
   vehiculosPresentes: number;
