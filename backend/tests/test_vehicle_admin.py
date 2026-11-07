@@ -8,7 +8,7 @@ from app.api.dependencies import get_current_account
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Client, Operator, UserAccount, Vehicle
+from app.models import Client, Membership, Operator, UserAccount, Vehicle
 from app.models.enums import AccountRole
 
 
@@ -37,7 +37,11 @@ def payload(client_id, plate=' abc123 '):
 
 
 def snapshot(db):
-    return (list(db.execute(text('SELECT * FROM vehicles'))), list(db.execute(text('SELECT * FROM vehicle_audits'))))
+    return (
+        list(db.execute(text('SELECT * FROM vehicles'))),
+        list(db.execute(text('SELECT * FROM memberships'))),
+        list(db.execute(text('SELECT * FROM vehicle_audits'))),
+    )
 
 
 @pytest.mark.parametrize('role', list(AccountRole))
@@ -49,6 +53,22 @@ def test_registration_and_durable_actor(context, role):
     assert response.json()['placa'] == 'ABC123'
     assert db.scalar(select(Vehicle)).client_id == customer
     assert list(db.execute(text('SELECT action, account_id FROM vehicle_audits'))) == [('CREATE', account.id)]
+
+
+def test_registration_creates_active_membership_for_immediate_entry(context):
+    client, db, _account, customer = context
+
+    created = client.post('/api/vehiculos', json=payload(customer, 'NEW123'))
+    lookup = client.get('/api/vehiculos/NEW123')
+
+    assert created.status_code == 201
+    assert lookup.status_code == 200
+    assert lookup.json()['estado_mensualidad'] == 'vigente'
+    assert lookup.json()['authorized'] is True
+    membership = db.scalar(select(Membership))
+    assert membership is not None
+    assert membership.vehicle_id == db.scalar(select(Vehicle.id))
+    assert membership.starts_at < membership.expires_at
 
 
 def test_lookup_requires_authentication(context):

@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Client, UserAccount, Vehicle, VehicleAudit
+from app.models import Client, Membership, UserAccount, Vehicle, VehicleAudit
 from app.schemas.vehicle import VehicleResponse, VehicleWriteRequest
 
 
@@ -50,6 +52,13 @@ class VehicleAdminService:
                 vehicle.color = data.color
                 vehicle.client_id = data.cliente_id
             self.db.flush()
+            if action == 'CREATE':
+                starts_at = datetime.now(timezone.utc)
+                self.db.add(Membership(
+                    vehicle_id=vehicle.id,
+                    starts_at=starts_at,
+                    expires_at=starts_at + timedelta(days=365),
+                ))
             after = vehicle_state(vehicle)
             self.db.add(VehicleAudit(vehicle_id=vehicle.id, account_id=account.id,
                                      action=action, before_state=before, after_state=after))

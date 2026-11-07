@@ -35,7 +35,7 @@ La Iteración 2 agrega autenticación con token firmado, administración de oper
 - **Corrección de celda**: desde **Vehículos presentes** se puede corregir la celda de una permanencia abierta cuando el vehículo quedó mal ubicado. Queda registrada la cuenta responsable.
 - **Administración de celdas**: alta, cambio de estado (activa/inactiva) y baja. Una celda con historial no se elimina físicamente: se inactiva para conservar auditoría.
 - **Administración de operadores**: alta, listado y anulación lógica. Las cuentas anuladas conservan el historial relacionado.
-- **Administración de vehículos y clientes**: consulta de clientes registrados y alta de vehículos asociados. No hay CRUD completo de clientes en esta entrega.
+- **Administración de vehículos y clientes**: consulta de clientes registrados y alta de vehículos asociados. Para facilitar las pruebas, cada vehículo nuevo recibe automáticamente una mensualidad vigente durante 365 días. No hay CRUD completo de clientes en esta entrega.
 - **Reportes e historial**: consulta la ocupación actual y recupera desde PostgreSQL las permanencias cerradas con sus operadores, comprobantes y correcciones de celda, incluso después de recargar la aplicación.
 - **Auditoría**: cada entrada, corrección y salida persiste la cuenta responsable. Las cuentas anuladas pierden acceso aunque conserven un token no vencido.
 
