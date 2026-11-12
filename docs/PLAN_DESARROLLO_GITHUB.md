@@ -1,6 +1,6 @@
-# Plan de desarrollo en GitHub — Autos Colombia, Iteraciones 1 y 2
+# Plan de desarrollo en GitHub — Autos Colombia, Iteraciones 1, 2 y 3
 
-> Plan de colaboración para continuar la aplicación de parqueadero sin conflictos de integración. La base funcional construida corresponde al [PRD de Iteración 1](PRD_Autos_Colombia_Iteracion_1.md); el alcance confirmado de autenticación, perfiles y celdas está en el [PRD de Iteración 2](PRD_Autos_Colombia_Iteracion_2.md). Ambas iteraciones comparten la [arquitectura técnica](ARQUITECTURA_TECNICA_AUTOS_COLOMBIA.md).
+> Plan de colaboración para continuar la aplicación de parqueadero sin conflictos de integración. La base funcional construida corresponde al [PRD de Iteración 1](PRD_Autos_Colombia_Iteracion_1.md); el alcance de autenticación, perfiles y celdas está en el [PRD de Iteración 2](PRD_Autos_Colombia_Iteracion_2.md); y la gestión de pagos de mensualidades está en el [PRD de Iteración 3](PRD_Autos_Colombia_Iteracion_3.md). Las tres iteraciones comparten la [arquitectura técnica](ARQUITECTURA_TECNICA_AUTOS_COLOMBIA.md).
 
 ## 1. Decisiones de trabajo
 
@@ -411,4 +411,156 @@ El documento final debe usar la nomenclatura solicitada por la actividad: `Apell
 11. Al terminar T29, ejecutar la verificación desde un clon limpio, completar video y enlaces, pasar el tracker a revisión y fusionar `camilo-backend` en `main` mediante **Create a merge commit**.
 12. Después del merge final, conservar `main` como versión entregable y cerrar o eliminar las ramas cortas ya integradas.
 
-No se debe iniciar la gestión de pagos en esta entrega. Esa funcionalidad pertenece a la Iteración 3.
+No se debe iniciar la gestión de pagos en esta entrega. Esa funcionalidad pertenece a la Iteración 3, cuya planificación se detalla en el apartado siguiente.
+
+## 12. Continuación para la Iteración 3 — gestión de pagos
+
+> Fuente funcional: [PRD de Iteración 3](PRD_Autos_Colombia_Iteracion_3.md). Si el backlog y el PRD difieren, primero se corrige la documentación y luego se implementa; ningún PR redefine requisitos por su cuenta.
+
+### 12.1 Diagnóstico del repositorio para pagos
+
+La Iteración 2 deja una base reutilizable que la Iteración 3 debe **extender sin reescribir**:
+
+- Existen las entidades `clients`, `vehicles` y `memberships`. El modelo de `memberships` ya expone una fecha de vencimiento consultada por el flujo de entrada, pero no está vinculado a un registro de pagos ni soporta anulaciones.
+- Existe autenticación con perfiles `ADMINISTRADOR` y `OPERADOR`. La Iteración 3 reutiliza esta sesión para capturar el responsable del pago sin introducir nuevos perfiles.
+- No existe aún la entidad `payments`, ni el cálculo de la fecha de corte extendida en 30 días desde la fecha de corte anterior, ni el estado `inactive` para clientes.
+- El frontend tiene ocupación, operadores, celdas y vehículos, pero no una pantalla de pagos ni de historial.
+- Los documentos y mockups vigentes describen iteraciones 1 y 2; faltan los artefactos académicos específicos de la Iteración 3.
+
+La Iteración 3 agrega un nuevo módulo de pagos, actualiza el estado del cliente y reutiliza el modelo de mensualidades existente, sin duplicar lógica previa.
+
+### 12.2 Resumen vinculante de la sesión sincrónica de pagos
+
+El profesor definió el alcance de pagos así, y el equipo se obliga a respetarlo:
+
+1. El **operador autenticado** registra el pago. El administrador también puede, pero el flujo diario lo atiende el operador.
+2. Los datos mínimos de un pago son: fecha del pago, valor del pago, cliente, vehículo y vigencia resultante de la mensualidad.
+3. Los medios aceptados son efectivo, transferencia bancaria o código QR. El sistema solo registra que el pago fue recibido; no integra pasarela externa.
+4. La **fecha del pago** y la **fecha de corte de la mensualidad** son fechas distintas. La fecha del pago registra cuándo se recibió el dinero. La fecha de corte define hasta cuándo el vehículo tiene derecho a ingresar.
+5. La nueva fecha de corte se calcula como **fecha de corte anterior + 30 días**, sin importar cuándo se realice el pago.
+6. Si el pago es anticipado, la fecha de corte **no se corre hacia adelante**. Ejemplo: corte vigente el día 20, paga el día 10, la nueva vigencia va hasta el día 20 del mes siguiente.
+7. Si el pago es en mora, la fecha de corte tampoco se corre. Ejemplo del profesor: corte el día 1, paga el día 5, la nueva vigencia va hasta el día 1 del mes siguiente, no hasta el día 5.
+8. Si el cliente es nuevo o regresó tras una baja, el primer pago fija la fecha de corte 30 días después del día del pago.
+9. No existe suspensión temporal del contrato. Un cliente que se va se marca como **inactivo**, no se elimina.
+10. Antes de inactivar al cliente se debe verificar que ninguno de sus vehículos esté dentro del parqueadero.
+11. Un cliente inactivo se oculta en consultas operativas, pero se conserva en la base de datos para auditoría. La diferencia entre "inactivo en plataforma" e "inactivo en base de datos" se preserva explícitamente.
+12. Un cliente que regresa se reactiva registrando un nuevo pago, que fija la fecha de corte desde el día del pago.
+13. El sistema no implementa retención física del vehículo por mora.
+14. Las notificaciones por correo o WhatsApp antes del vencimiento son **voluntarias**. No afectan la calificación de la iteración.
+15. El profesor ejecuta aproximadamente 120 pruebas unitarias y 30 de integración, con énfasis en que la fecha de corte **no se corra** cuando el pago llega tarde o anticipado.
+
+Cualquier PR que viole una de estas reglas se devuelve antes de la revisión funcional. La disciplina de fecha de corte es la condición principal de aprobación.
+
+### 12.3 Requisitos funcionales y reglas de negocio
+
+La definición normativa está en las secciones 6 a 8 del [PRD de Iteración 3](PRD_Autos_Colombia_Iteracion_3.md), con los identificadores `RF-I3-01` a `RF-I3-20`, `RNF-I3-01` a `RNF-I3-10` y `RN-I3-01` a `RN-I3-14`. Este plan no duplica ni renumera esos requisitos; únicamente los convierte en tareas ejecutables.
+
+Resumen para asignación:
+
+| Grupo | Alcance |
+|---|---|
+| `RF-I3-01`–`RF-I3-09` | Registro de pagos, cálculo de nueva fecha de corte y anulación por administrador |
+| `RF-I3-10`–`RF-I3-13` | Consulta de vigencia, historial y restricción de ingreso para vencidos |
+| `RF-I3-14`–`RF-I3-17` | Baja y reactivación de clientes con auditoría |
+| `RF-I3-18`–`RF-I3-20` | Reportes operativos y aviso de mensualidades por vencer |
+
+### 12.4 Entregables académicos de la Actividad Evaluativa 3
+
+Los entregables individuales se reparten de forma balanceada. El video y el repositorio GitHub son trabajo grupal.
+
+| ID | Entregable requerido | Responsable principal | Revisión | Puntos |
+|---|---|---|---|---|
+| D3-01 | Requisitos funcionales y no funcionales de pagos | Camilo | Paul y Mafe | 15 |
+| D3-02 | Plan de pruebas resumido de pagos | Camilo | Paul y Mafe | 10 |
+| D3-03 | Diagrama de casos de uso de pagos en StarUML | Paul | Camilo | 10 |
+| D3-04 | Diagrama de secuencia acumulativo de las iteraciones 1, 2 y 3 en StarUML | Paul | Camilo | 10 |
+| D3-05 | Diagrama de componentes acumulativo de las tres iteraciones en StarUML | Paul | Camilo | 10 |
+| D3-06 | Historias de usuario de pagos | Mafe | Camilo | 10 |
+| D3-07 | Mockups de pagos en Figma | Mafe | Camilo | 10 |
+| D3-08 | URL del repositorio en GitHub actualizado | Grupal | Grupal | 15 |
+| D3-09 | Video en YouTube mostrando las tres iteraciones | Grupal, Mafe coordina guion | Grupal | 10 |
+| D3-10 | PDF final con portada, introducción, entregables y conclusiones | Mafe compila, los tres aportan | Grupal | — |
+
+Totales por persona (solo entregables individuales): Camilo 25 puntos, Paul 30 puntos, Mafe 20 puntos. El balance privilegia agrupar artefactos relacionados para reducir fricción de coordinación: Camilo concentra el texto normativo, Paul los diagramas en StarUML y Mafe la línea de UX. El documento final usa la nomenclatura `Apellido_Nombre_EA3`.
+
+### 12.5 Reparto del desarrollo en GitHub
+
+| Persona | Responsabilidad principal | Superficies de código |
+|---|---|---|
+| **Paul** | Modelo persistente de pagos, anulaciones, estado del cliente, auditoría y restricciones de integridad para los nuevos escenarios | `backend/app/models/`, `backend/app/db/`, `backend/scripts/seed.py`, migraciones y pruebas de persistencia |
+| **Camilo** | Servicio de cálculo de fecha de corte, API de pagos, mensualidades y clientes; integración con el flujo de entrada | `backend/app/schemas/`, `backend/app/services/`, `backend/app/api/`, pruebas de servicios y API |
+| **Mafe** | Pantallas de pagos, historial, vigencia, baja y reactivación de clientes; mensajes claros sobre vigencia | `frontend/src/app/features/payments/`, `frontend/src/app/features/clients/`, servicios, modelos y componentes compartidos relacionados |
+
+#### Límites para evitar conflictos
+
+- Paul define tablas, relaciones, índices y restricciones de pagos; Camilo los consume desde servicios y endpoints.
+- Camilo define el contrato HTTP de pagos y los códigos de error antes de que Mafe conecte las pantallas.
+- Mafe puede desarrollar primero con datos simulados, pero no implementa reglas de cálculo de fechas en el frontend: la fecha de corte se calcula en FastAPI.
+- Solo una persona edita por PR los hotspots `docker-compose.yml`, `.env.example`, `README.md`, rutas Angular y registro principal de routers FastAPI.
+- Ningún PR debe mezclar pagos, baja de cliente y reportes en un único cambio. Cada tarea debe poder revisarse y probarse por separado.
+
+### 12.6 Backlog técnico de la Iteración 3
+
+La rama integradora de esta iteración es `iter3-pagos`, creada desde `main` después de fusionar la Iteración 2. Cada tarea abre un PR hacia `iter3-pagos`. Un PR tracker draft `iter3-pagos` → `main` se abre tras integrar T30 y permanece abierto hasta cerrar T40.
+
+| ID | Responsable | Depende de | Entregable delimitado | Verificación mínima |
+|---|---|---|---|---|
+| T30 | Camilo + Paul | Iteración 2 integrada en `main` | Alinear PRD, arquitectura, contrato de pagos, reglas de fecha de corte y matriz de permisos | Documento revisado por los tres; matriz perfil-acción de pagos cerrada |
+| T31 | Paul | T30 | Modelo persistente de `payments` con estado, responsable, cobertura y auditoría; estado `ACTIVE/INACTIVE` del cliente | Migración aplicada; restricciones de integridad verificadas; semilla con casos vigente, vencido y anulado |
+| T32 | Paul | T31 | Semillas y datos de prueba para los escenarios de fecha de corte (anticipado, en mora, primer pago, reactivación) | Scripts reproducibles; datos cargan sin duplicados |
+| T33 | Camilo | T30, T31 | Servicio `MembershipCycleService` que calcula la nueva fecha de corte como corte anterior + 30 días y maneja primer pago | Pruebas unitarias para anticipado, mora, día exacto y primer pago; cero regresiones en la validación de ingreso |
+| T34 | Camilo | T33 | API `POST /api/pagos`, `GET /api/pagos`, `GET /api/pagos/{id}`, `GET /api/mensualidades/*` con autorización y auditoría | Operador registra y consulta; administrador también; responsable derivado de sesión |
+| T35 | Camilo | T34 | `PATCH /api/pagos/{id}/anular` restringido a administrador con reversión de fecha de corte | Operador recibe `403`; anulación revierte el corte y no borra el registro |
+| T36 | Camilo | T34 | API de baja y reactivación de clientes: `PATCH /api/clientes/{id}/baja` y `PATCH /api/clientes/{id}/reactivar` con validación de vehículos dentro | Baja rechazada si hay permanencia abierta; reactivación exige pago nuevo |
+| T37 | Mafe | T30 | Pantallas presentacionales de registro de pago, historial, vigencia y baja/reactivación con datos simulados | Build correcto; estados de carga, éxito, vacío, error y rechazo documentados sin HTTP real |
+| T38 | Mafe + Camilo | T34, T35, T36, T37 | Integración del frontend de pagos con la API, mensajes de rechazo `401/403/404/409/422` y navegación por perfil | Recarga preserva sesión; rechazo no deja estado parcial; operador y administrador ven acciones correctas |
+| T39 | Camilo + Paul | T34–T36, T31–T32 | Pruebas de regresión, concurrencia y auditoría enfocadas en fecha de corte, idempotencia de pago y restricción de ingreso | Dos pagos simultáneos para la misma placa no corrompen la fecha de corte; mensualidad vencida sigue impidiendo ingreso |
+| T40 | Mafe + Compartido | T38, T39, entregables académicos | Evidencia manual, plan de pruebas resumido, README actualizado, video y cierre de la entrega | Clon limpio + Docker Compose + recorrido de pagos, baja, reactivación, anulación y regresión de iteraciones 1 y 2 |
+
+### 12.7 Oleadas y orden de integración
+
+| Oleada | Trabajo paralelo | Resultado |
+|---|---|---|
+| J — Contrato | T30 y borradores D3-01/D3-06/D3-07 | Permisos, rutas, DTO y pantallas acordadas antes de programar |
+| K — Base paralela | Paul: T31–T32; Mafe: T37 con mocks | Persistencia y frontend avanzan sin editar los mismos archivos |
+| L — Reglas de negocio | Camilo: T33–T36 en PR separados | Cálculo de corte, anulación y baja/reactivación completos en backend |
+| M — Integración | Mafe + Camilo: T38; Camilo + Paul: T39 | Aplicación integrada y regresión comprobada |
+| N — Evidencia | T40 y D3-01 a D3-10 | Entrega académica, repositorio y video terminados |
+
+### 12.8 Flujo concreto en GitHub
+
+1. Crear los issues T30–T40 con alcance, responsable, dependencias y verificación mínima.
+2. Después de fusionar `camilo-backend` en `main` al cierre de la Iteración 2, crear `iter3-pagos` desde `main` mediante avance rápido y publicarla antes de iniciar T30.
+3. Crear `docs/i3-t30-contract` desde `iter3-pagos`, actualizar los documentos y abrir el primer PR hijo hacia `iter3-pagos`.
+4. Después de integrar T30, abrir el PR tracker `iter3-pagos` → `main` como **draft/no merge**.
+5. Cada tarea posterior usa una rama corta `feat/i3-tNN-description` o `test/i3-tNN-description` creada desde `origin/iter3-pagos` y un PR cuyo destino es `iter3-pagos`.
+6. Integrar por oleadas:
+   - J: T30.
+   - K: T31–T32 y T37 en paralelo cuando no compartan archivos.
+   - L: T33 primero, luego T34–T36 en PR separados.
+   - M: T38 y luego T39.
+   - N: T40.
+7. Si una tarea depende de otra, su PR permanece como **draft** hasta que la dependencia esté integrada en `iter3-pagos`.
+8. Cada PR hijo debe mostrar únicamente su trabajo, incluir pruebas y documentación aplicables y procurar no superar 400 líneas de cambios autorales.
+9. Paul revisa los cambios de persistencia y transacciones; Camilo revisa reglas, contrato y cálculo de fecha de corte; Mafe valida el comportamiento visible.
+10. No fusionar un PR hijo si fallan: cálculo de fecha de corte, autorización de anulación, baja con vehículo dentro o regresiones de las iteraciones 1 y 2.
+11. Al terminar T40, ejecutar la verificación desde un clon limpio, completar video y enlaces, pasar el tracker a revisión y fusionar `iter3-pagos` en `main` mediante **Create a merge commit**.
+12. Después del merge final, conservar `main` como versión entregable y cerrar o eliminar las ramas cortas ya integradas.
+
+### 12.9 Definición de terminado de la Iteración 3
+
+T40 solo se cierra cuando el equipo puede, desde un clon limpio y con las instrucciones del README:
+
+1. levantar Angular, FastAPI y PostgreSQL con Docker Compose;
+2. autenticarse como operador y registrar un pago anticipado comprobando que la fecha de corte **no se corre**;
+3. autenticarse como operador y registrar un pago en mora comprobando que la fecha de corte sigue el ciclo original;
+4. registrar el primer pago de un cliente reactivado y verificar que la fecha de corte parte desde el día del pago;
+5. autenticarse como administrador y anular un pago, comprobando que la fecha de corte se revierte y el pago queda marcado como anulado;
+6. intentar dar de baja a un cliente con vehículo dentro del parqueadero y comprobar que el sistema lo rechaza;
+7. dar de baja a un cliente sin vehículos dentro y verificar que deja de aparecer en consultas operativas pero persiste en la base de datos;
+8. reactivar al cliente mediante un pago y verificar que vuelve a operar;
+9. intentar ingresar un vehículo con mensualidad vencida y comprobar el rechazo del flujo de entrada de la Iteración 1;
+10. consultar el reporte de recaudo del día y comprobar que los pagos anulados no suman;
+11. ejecutar un recorrido breve de entrada y salida de un vehículo vigente para verificar que las iteraciones 1 y 2 siguen funcionando.
+
+Cualquier pregunta no resuelta del PRD se registra como issue de decisión; no se amplía el alcance de la Iteración 3 dentro de un PR de implementación.
