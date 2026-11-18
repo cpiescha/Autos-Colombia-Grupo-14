@@ -2,6 +2,8 @@ from app.models.cell_correction import CellCorrection
 from app.models.client import Client
 from app.models.membership import Membership
 from app.models.operator import Operator
+from app.models.payment import Payment
+from app.models.payment_audit import ClientStatusAudit, PaymentAudit
 from app.models.parking_spot import ParkingSpot
 from app.models.parking_stay import ParkingStay
 from app.models.receipt import Receipt
@@ -13,8 +15,11 @@ __all__ = [
     "CellCorrection",
     "Client",
     "Membership",
+    "ClientStatusAudit",
     "Operator",
     "ParkingSpot",
+    "Payment",
+    "PaymentAudit",
     "ParkingStay",
     "Receipt",
     "UserAccount",
