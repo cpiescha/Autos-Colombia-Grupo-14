@@ -17,9 +17,9 @@ Scope: complete T33 only; T34 payment HTTP endpoints remain a separate work unit
 
 ## Tasks
 
-- [x] **T1** (`S2-S4`, inline, commit pending): Add RED unit tests for advance, overdue, exact-day, and first-payment cycles.
-- [x] **T2** (`S2-S4`, inline, commit pending): Implement `MembershipCycleService` with timezone-aware 30-day calculations.
-- [x] **T3** (`S3`, inline, commit pending): Run focused tests and entry-validation regression tests; record evidence.
+- [x] **T1** (`S2-S4`, inline, commit `a5f3f21`): Add RED unit tests for advance, overdue, exact-day, and first-payment cycles.
+- [x] **T2** (`S2-S4`, inline, commit `a5f3f21`): Implement `MembershipCycleService` with timezone-aware 30-day calculations.
+- [x] **T3** (`S3`, inline, commit `a5f3f21`): Run focused tests and entry-validation regression tests; record evidence.
 
 Risk: item 1 — membership cutoff calculations affect persisted access eligibility and must not advance from the wrong date.
 
@@ -33,3 +33,4 @@ Risk: item 1 — membership cutoff calculations affect persisted access eligibil
 - **L6:** The full backend suite reached 51% plus additional tests with no reported failure, then exceeded the 30-second command limit; it was not retried.
 - **L7:** An initial independent-verifier command query expired before execution; no test result was claimed from that attempt.
 - **L8:** Independent verification then passed S1-S4. Exact focused command result: `19 passed, 1 warning` with no failures or skips. Reactivation caller integration remains outside T33 and is deferred to T34.
+- **L9:** T33 implementation, tests, and task evidence were committed as `a5f3f21` (`feat(payments): add membership cycle service`).
