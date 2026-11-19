@@ -40,6 +40,13 @@ class PaymentAnnulmentService:
                 "La anulación requiere un motivo.",
             )
 
+        try:
+            return self._annul(payment_id, account, clean_reason)
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def _annul(self, payment_id: int, account: UserAccount, clean_reason: str) -> Payment:
         payment = self._lock_payment(payment_id)
         if payment is None:
             raise PaymentAnnulmentError(404, "PAYMENT_NOT_FOUND", "El pago no existe.")
@@ -51,16 +58,30 @@ class PaymentAnnulmentService:
             )
 
         membership = self._lock_membership(payment.membership_id)
+        if membership.last_payment_id != payment.id:
+            raise PaymentAnnulmentError(
+                409,
+                "PAYMENT_NOT_LATEST",
+                "Solo se puede anular el último pago aplicado.",
+            )
+        predecessor_id = self.db.scalar(
+            select(Payment.id).where(
+                Payment.membership_id == membership.id,
+                Payment.status == "REGISTERED",
+                Payment.id < payment.id,
+            ).order_by(Payment.id.desc()).limit(1)
+        )
         previous_state = {
             "status": payment.status,
             "current_cutoff_date": _iso(membership.current_cutoff_date),
+            "expires_at": _iso(membership.expires_at),
+            "last_payment_id": membership.last_payment_id,
         }
         membership.current_cutoff_date = payment.previous_cutoff
         membership.expires_at = payment.previous_cutoff or (
             membership.starts_at + timedelta(seconds=1)
         )
-        if membership.last_payment_id == payment.id:
-            membership.last_payment_id = None
+        membership.last_payment_id = predecessor_id
 
         payment.status = "ANNULLED"
         payment.annulled_by = account.id
@@ -74,6 +95,8 @@ class PaymentAnnulmentService:
             new_state={
                 "status": "ANNULLED",
                 "current_cutoff_date": _iso(membership.current_cutoff_date),
+                "expires_at": _iso(membership.expires_at),
+                "last_payment_id": membership.last_payment_id,
                 "reason": clean_reason,
             },
         ))
@@ -82,13 +105,17 @@ class PaymentAnnulmentService:
         return payment
 
     def _lock_payment(self, payment_id: int) -> Payment | None:
-        query = select(Payment).where(Payment.id == payment_id)
+        query = select(Payment).where(Payment.id == payment_id).execution_options(
+            populate_existing=True,
+        )
         if self.db.get_bind().dialect.name == "postgresql":
             query = query.with_for_update()
         return self.db.execute(query).scalar_one_or_none()
 
     def _lock_membership(self, membership_id: int) -> Membership:
-        query = select(Membership).where(Membership.id == membership_id)
+        query = select(Membership).where(Membership.id == membership_id).execution_options(
+            populate_existing=True,
+        )
         if self.db.get_bind().dialect.name == "postgresql":
             query = query.with_for_update()
         return self.db.execute(query).scalar_one()

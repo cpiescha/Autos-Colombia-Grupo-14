@@ -80,6 +80,8 @@ def _payment(session, account, *, key, cutoff, previous):
         idempotency_key=key,
     )
     session.add(payment)
+    session.flush()
+    membership.last_payment_id = payment.id
     session.commit()
     return payment
 
@@ -156,12 +158,123 @@ def test_second_annulment_conflicts_and_operator_is_forbidden(session):
         cutoff=now + timedelta(days=30), previous=now,
     )
 
+    before = _snapshot(session)
     with pytest.raises(PaymentAnnulmentError) as forbidden:
         PaymentAnnulmentService(session).annul(payment.id, operator, "No corresponde")
     assert forbidden.value.status_code == 403
-    assert session.get(Payment, payment.id).status == "REGISTERED"
+    assert _snapshot(session) == before
 
     PaymentAnnulmentService(session).annul(payment.id, admin, "Error de registro")
+    before = _snapshot(session)
     with pytest.raises(PaymentAnnulmentError) as conflict:
         PaymentAnnulmentService(session).annul(payment.id, admin, "Otra vez")
     assert conflict.value.status_code == 409
+    assert _snapshot(session) == before
+
+
+def _snapshot(session):
+    return [session.execute(select(model.__table__)).all()
+            for model in (Payment, Membership, PaymentAudit)]
+
+
+@pytest.mark.parametrize("failure", ["audit", "commit"])
+def test_annulment_failure_rolls_back_and_session_is_reusable(session, monkeypatch, failure):
+    admin = _account(session, "admin", AccountRole.ADMINISTRADOR)
+    now = datetime.now(timezone.utc)
+    payment = _payment(session, admin, key="rollback", previous=now,
+                       cutoff=now + timedelta(days=30))
+    before = _snapshot(session)
+    original = session.add
+
+    def fail_audit(obj):
+        if isinstance(obj, PaymentAudit):
+            raise RuntimeError("audit failure")
+        original(obj)
+
+    def fail_commit():
+        session.flush()
+        raise RuntimeError("commit failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(session, "add" if failure == "audit" else "commit",
+                      fail_audit if failure == "audit" else fail_commit)
+        with pytest.raises(RuntimeError):
+            PaymentAnnulmentService(session).annul(payment.id, admin, "Error")
+    assert _snapshot(session) == before
+    assert not session.dirty
+    PaymentAnnulmentService(session).annul(payment.id, admin, "Reintento")
+    assert payment.status == "ANNULLED"
+
+
+@pytest.mark.parametrize("change", ["new_payment", "annulled"])
+def test_annulment_refreshes_cached_payment_and_membership(session, change):
+    admin = _account(session, "admin-stale", AccountRole.ADMINISTRADOR)
+    now = datetime.now(timezone.utc)
+    payment = _payment(session, admin, key="stale-payment", previous=now,
+                       cutoff=now + timedelta(days=30))
+    payment_id = payment.id
+    membership = session.get(Membership, payment.membership_id)
+    admin_id = admin.id
+    assert payment.status == "REGISTERED"
+    assert membership.last_payment_id == payment_id
+    cached_cutoff = membership.current_cutoff_date
+
+    with Session(session.get_bind()) as other:
+        current = other.get(Membership, membership.id)
+        if change == "new_payment":
+            successor = Payment(
+                vehicle_id=payment.vehicle_id, client_id=payment.client_id,
+                membership_id=membership.id, amount=Decimal("120000.00"),
+                payment_method="EFECTIVO", paid_at=now,
+                coverage_start=cached_cutoff,
+                coverage_end=cached_cutoff + timedelta(days=30),
+                previous_cutoff=cached_cutoff, recorded_by=admin_id,
+                status="REGISTERED", idempotency_key="stale-successor",
+            )
+            other.add(successor)
+            other.flush()
+            current.last_payment_id = successor.id
+            current.current_cutoff_date = successor.coverage_end
+            current.expires_at = successor.coverage_end
+            other.commit()
+        else:
+            PaymentAnnulmentService(other).annul(
+                payment_id, other.get(UserAccount, admin_id), "Otra sesión",
+            )
+        before = _snapshot(other)
+
+    # Keep strong references: both cached instances must still contain old values.
+    assert session.get(Payment, payment_id) is payment
+    assert session.get(Membership, membership.id) is membership
+    assert payment.status == "REGISTERED"
+    assert membership.last_payment_id == payment_id
+    assert membership.current_cutoff_date == cached_cutoff
+    error = None
+    try:
+        PaymentAnnulmentService(session).annul(payment_id, admin, "Estado obsoleto")
+    except PaymentAnnulmentError as exc:
+        error = exc
+
+    # Read every persisted column independently, even if the service failed to reject.
+    with Session(session.get_bind()) as verification:
+        assert _snapshot(verification) == before
+    assert error is not None
+    assert error.status_code == 409
+    assert error.code == (
+        "PAYMENT_NOT_LATEST" if change == "new_payment" else "PAYMENT_ALREADY_ANNULLED"
+    )
+
+
+def test_null_previous_cutoff_restores_expired_membership(session):
+    admin = _account(session, "admin", AccountRole.ADMINISTRADOR)
+    past = datetime.now(timezone.utc) - timedelta(days=10)
+    payment = _payment(session, admin, key="null-cutoff", previous=past,
+                       cutoff=past + timedelta(days=30))
+    membership = session.get(Membership, payment.membership_id)
+    membership.starts_at = past
+    payment.previous_cutoff = None
+    session.commit()
+    PaymentAnnulmentService(session).annul(payment.id, admin, "Error")
+    assert membership.current_cutoff_date is None
+    assert membership.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc)
+    assert membership.last_payment_id is None

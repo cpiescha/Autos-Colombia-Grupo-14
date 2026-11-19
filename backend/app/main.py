@@ -10,14 +10,18 @@ from app.api.corrections import router as corrections_router
 from app.api.entries import router as entries_router
 from app.api.exits import router as exits_router
 from app.api.occupancy import router as occupancy_router
+from app.api.memberships import router as memberships_router
 from app.api.operators import router as operators_router
 from app.api.parking_spots import router as parking_spots_router
 from app.api.payments import router as payments_router
 from app.api.vehicles import router as vehicles_router
 from app.services.auth import AuthenticationError, AuthorizationError
+from app.services.client_lifecycle import ClientLifecycleError
 from app.services.operator_admin import OperatorAdminError
 from app.services.parking_spot_admin import ParkingSpotAdminError
 from app.services.payment_annulment import PaymentAnnulmentError
+from app.services.payment_queries import PaymentQueryError
+from app.services.payment_registration import PaymentRegistrationError
 
 app = FastAPI(
     title="Autos Colombia API",
@@ -40,6 +44,7 @@ app.include_router(corrections_router)
 app.include_router(operators_router)
 app.include_router(parking_spots_router)
 app.include_router(payments_router)
+app.include_router(memberships_router)
 
 
 @app.exception_handler(AuthenticationError)
@@ -118,6 +123,37 @@ async def payment_annulment_error_handler(
     )
 
 
+@app.exception_handler(ClientLifecycleError)
+@app.exception_handler(PaymentRegistrationError)
+async def payment_registration_error_handler(
+    request: Request, error: PaymentRegistrationError | ClientLifecycleError
+) -> JSONResponse:
+    del request
+    return JSONResponse(
+        status_code=error.status_code,
+        content={
+            "code": error.code,
+            "message": error.message,
+            "details": None,
+        },
+    )
+
+
+@app.exception_handler(PaymentQueryError)
+async def payment_query_error_handler(
+    request: Request, error: PaymentQueryError
+) -> JSONResponse:
+    del request
+    return JSONResponse(
+        status_code=error.status_code,
+        content={
+            "code": error.code,
+            "message": error.message,
+            "details": None,
+        },
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def request_validation_error_handler(
     request: Request, error: RequestValidationError
@@ -139,6 +175,11 @@ async def request_validation_error_handler(
                 "message": "Los datos de entrada no son válidos.",
                 "details": None,
             },
+        )
+    if request.url.path.startswith('/api/clientes'):
+        return JSONResponse(
+            status_code=422,
+            content={'code': 'INVALID_CLIENT_DATA', 'message': 'Los datos del cliente no son válidos.', 'details': None},
         )
     if request.url.path.startswith("/api/operadores"):
         return JSONResponse(
@@ -164,6 +205,15 @@ async def request_validation_error_handler(
             content={
                 "code": "INVALID_PAYMENT_DATA",
                 "message": "Los datos del pago no son válidos.",
+                "details": None,
+            },
+        )
+    if request.url.path.startswith("/api/mensualidades"):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "INVALID_MEMBERSHIP_DATA",
+                "message": "Los datos de consulta de mensualidad no son válidos.",
                 "details": None,
             },
         )
