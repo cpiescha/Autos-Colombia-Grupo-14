@@ -30,6 +30,12 @@ class RegisteredPaymentResponse(BaseModel):
     responsable_id: int
 
 
+class PaymentReadResponse(RegisteredPaymentResponse):
+    anulado_en: datetime | None
+    anulado_por_id: int | None
+    motivo_anulacion: str | None
+
+
 class AnnulPaymentRequest(BaseModel):
     motivo: str = Field(min_length=1, max_length=255)
 

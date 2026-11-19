@@ -258,3 +258,159 @@ def test_existing_admin_annulment_route_still_works(payment_api):
     assert response.json()["id"] == payment_id
     assert response.json()["estado"] == "ANNULLED"
     assert response.json()["motivo_anulacion"] == "Error de registro"
+
+
+READ_FIELDS = {
+    "id",
+    "vehiculo_id",
+    "cliente_id",
+    "mensualidad_id",
+    "estado",
+    "valor",
+    "medio",
+    "fecha_pago",
+    "cobertura_desde",
+    "fecha_corte",
+    "fecha_corte_anterior",
+    "responsable_id",
+    "anulado_en",
+    "anulado_por_id",
+    "motivo_anulacion",
+}
+
+
+def _create_payment(client, token, key, paid_at):
+    response = client.post(
+        "/api/pagos",
+        json={**_body(key), "fecha_pago": paid_at},
+        headers=_headers(token),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_payment_list_requires_authentication(payment_api):
+    response = payment_api["client"].get("/api/pagos")
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "INVALID_SESSION"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_operator_sees_own_payments_and_admin_sees_all(payment_api):
+    client = payment_api["client"]
+    operator_payment = _create_payment(
+        client,
+        payment_api["operator_token"],
+        "payment-list-operator",
+        "2026-12-05T10:00:00+00:00",
+    )
+    admin_payment = _create_payment(
+        client,
+        payment_api["admin_token"],
+        "payment-list-admin",
+        "2026-12-06T10:00:00+00:00",
+    )
+
+    operator_response = client.get(
+        "/api/pagos",
+        headers=_headers(payment_api["operator_token"]),
+    )
+    admin_response = client.get(
+        "/api/pagos",
+        headers=_headers(payment_api["admin_token"]),
+    )
+
+    assert operator_response.status_code == 200
+    assert [item["id"] for item in operator_response.json()] == [operator_payment["id"]]
+    assert set(operator_response.json()[0]) == READ_FIELDS
+    assert operator_response.json()[0]["responsable_id"] == 70
+    assert admin_response.status_code == 200
+    assert [item["id"] for item in admin_response.json()] == [
+        admin_payment["id"],
+        operator_payment["id"],
+    ]
+    assert all(set(item) == READ_FIELDS for item in admin_response.json())
+
+
+def test_payment_detail_respects_operator_ownership_and_admin_access(payment_api):
+    client = payment_api["client"]
+    operator_payment = _create_payment(
+        client,
+        payment_api["operator_token"],
+        "payment-detail-operator",
+        "2026-12-05T10:00:00+00:00",
+    )
+    admin_payment = _create_payment(
+        client,
+        payment_api["admin_token"],
+        "payment-detail-admin",
+        "2026-12-06T10:00:00+00:00",
+    )
+
+    own = client.get(
+        f"/api/pagos/{operator_payment['id']}",
+        headers=_headers(payment_api["operator_token"]),
+    )
+    hidden = client.get(
+        f"/api/pagos/{admin_payment['id']}",
+        headers=_headers(payment_api["operator_token"]),
+    )
+    admin = client.get(
+        f"/api/pagos/{operator_payment['id']}",
+        headers=_headers(payment_api["admin_token"]),
+    )
+
+    assert own.status_code == 200
+    assert own.json()["id"] == operator_payment["id"]
+    assert set(own.json()) == READ_FIELDS
+    assert hidden.status_code == 404
+    assert hidden.json()["code"] == "PAYMENT_NOT_FOUND"
+    assert admin.status_code == 200
+    assert admin.json()["id"] == operator_payment["id"]
+
+
+def test_unknown_payment_detail_returns_payment_not_found(payment_api):
+    response = payment_api["client"].get(
+        "/api/pagos/999",
+        headers=_headers(payment_api["operator_token"]),
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "code": "PAYMENT_NOT_FOUND",
+        "message": "El pago no existe.",
+        "details": None,
+    }
+
+
+def test_payment_list_is_sorted_by_payment_date_desc_then_id_desc(payment_api):
+    client = payment_api["client"]
+    token = payment_api["operator_token"]
+    older = _create_payment(
+        client,
+        token,
+        "payment-order-older",
+        "2026-12-04T10:00:00+00:00",
+    )
+    same_date_first = _create_payment(
+        client,
+        token,
+        "payment-order-first",
+        "2026-12-06T10:00:00+00:00",
+    )
+    same_date_second = _create_payment(
+        client,
+        token,
+        "payment-order-second",
+        "2026-12-06T10:00:00+00:00",
+    )
+
+    response = client.get("/api/pagos", headers=_headers(token))
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [
+        same_date_second["id"],
+        same_date_first["id"],
+        older["id"],
+    ]

@@ -14,6 +14,9 @@ Scope: payment registration and read-only payment/membership queries; annulment 
 8. **S8 — Idempotency decision:** “Devolver el pago original (recomendado)”.
 9. **S9 — Activation decision:** “Solo primer pago o reactivación (recomendado)”.
 10. **S10 — HTTP contract decision:** “Contrato completo en español (recomendado)”.
+11. **S11 — Bounded continuation:** “sigamos solo con t34/t3 y para y subelo al repo”.
+12. **S12 — Operator visibility:** “Solo sus propios pagos”.
+13. **S13 — List ordering:** “Más recientes primero (recomendado)”.
 
 ## Allowed edit surfaces
 
@@ -33,7 +36,7 @@ Scope: payment registration and read-only payment/membership queries; annulment 
 
 - [x] **T1** (`S2-S5`, `S7-S9`, inline, commit `98dc996`): Add RED service tests and implement atomic payment registration using `MembershipCycleService`.
 - [x] **T2** (`S2-S5`, `S8`, `S10`, inline, commit `fc92766`): Add `POST /api/pagos` with authenticated operator/admin identity and idempotency handling.
-- [ ] **T3** (`S2-S3`, inline, commit pending): Add payment list/detail queries and DTOs.
+- [x] **T3** (`S2-S3`, `S10-S13`, inline, commit pending): Add payment list/detail queries and DTOs.
 - [ ] **T4** (`S2`, `S6`, inline, commit pending): Add vehicle/client/expiring membership queries.
 - [ ] **T5** (`S3-S6`, independent verification, commit pending): Run focused API, entry, persistence, and authorization regressions; record evidence.
 
@@ -53,3 +56,7 @@ Risk: item 3 — T34 adds public HTTP contracts consumed by the frontend.
 - **L9:** T2 GREEN passed `9 passed`; payment API/service/persistence/cycle regression plus existing annulment route passed `22 passed, 1 warning`.
 - **L10:** T2 was committed as `fc92766` (354 changed lines). T3 starts a new review slice.
 - **L11:** User stop: “para y sube los cambios a camilo backend”. T3 exploration was cancelled before source changes; T3-T5 remain pending.
+- **L12:** User continuation: “sigamos solo con t34/t3 y para y subelo al repo”. T4-T5 remain out of scope for this bounded continuation.
+- **L13:** User selected operator visibility restricted to payments recorded by that operator; administrators see all payments. Lists use `fecha_pago DESC, id DESC`.
+- **L14:** T3 RED observed: unauthenticated list returned `405`, authenticated list returned `405`, and detail routes returned generic `404` because GET routes did not exist.
+- **L15:** T3 GREEN passed `15 passed`; focused payment API/service/persistence/cycle regression passed `27 passed, 1 warning`.

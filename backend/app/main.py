@@ -18,6 +18,7 @@ from app.services.auth import AuthenticationError, AuthorizationError
 from app.services.operator_admin import OperatorAdminError
 from app.services.parking_spot_admin import ParkingSpotAdminError
 from app.services.payment_annulment import PaymentAnnulmentError
+from app.services.payment_queries import PaymentQueryError
 from app.services.payment_registration import PaymentRegistrationError
 
 app = FastAPI(
@@ -122,6 +123,21 @@ async def payment_annulment_error_handler(
 @app.exception_handler(PaymentRegistrationError)
 async def payment_registration_error_handler(
     request: Request, error: PaymentRegistrationError
+) -> JSONResponse:
+    del request
+    return JSONResponse(
+        status_code=error.status_code,
+        content={
+            "code": error.code,
+            "message": error.message,
+            "details": None,
+        },
+    )
+
+
+@app.exception_handler(PaymentQueryError)
+async def payment_query_error_handler(
+    request: Request, error: PaymentQueryError
 ) -> JSONResponse:
     del request
     return JSONResponse(
