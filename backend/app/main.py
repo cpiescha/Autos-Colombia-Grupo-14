@@ -16,6 +16,7 @@ from app.api.parking_spots import router as parking_spots_router
 from app.api.payments import router as payments_router
 from app.api.vehicles import router as vehicles_router
 from app.services.auth import AuthenticationError, AuthorizationError
+from app.services.client_lifecycle import ClientLifecycleError
 from app.services.operator_admin import OperatorAdminError
 from app.services.parking_spot_admin import ParkingSpotAdminError
 from app.services.payment_annulment import PaymentAnnulmentError
@@ -122,9 +123,10 @@ async def payment_annulment_error_handler(
     )
 
 
+@app.exception_handler(ClientLifecycleError)
 @app.exception_handler(PaymentRegistrationError)
 async def payment_registration_error_handler(
-    request: Request, error: PaymentRegistrationError
+    request: Request, error: PaymentRegistrationError | ClientLifecycleError
 ) -> JSONResponse:
     del request
     return JSONResponse(
@@ -173,6 +175,11 @@ async def request_validation_error_handler(
                 "message": "Los datos de entrada no son válidos.",
                 "details": None,
             },
+        )
+    if request.url.path.startswith('/api/clientes'):
+        return JSONResponse(
+            status_code=422,
+            content={'code': 'INVALID_CLIENT_DATA', 'message': 'Los datos del cliente no son válidos.', 'details': None},
         )
     if request.url.path.startswith("/api/operadores"):
         return JSONResponse(

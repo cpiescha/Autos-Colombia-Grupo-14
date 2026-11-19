@@ -10,7 +10,8 @@ from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.enums import SpotCategory
+from app.models.enums import SpotCategory, ClientStatus
+from app.models.client import Client
 from app.models.membership import Membership
 from app.models.operator import Operator
 from app.models.parking_spot import ParkingSpot
@@ -41,6 +42,8 @@ class EntryRepository(Protocol):
     def transaction(self) -> AbstractContextManager[None]: ...
 
     def find_vehicle_for_update(self, plate: str) -> Vehicle | None: ...
+
+    def is_client_active(self, vehicle_id: int) -> bool: ...
 
     def operator_exists(self, operator_id: int) -> bool: ...
 
@@ -75,8 +78,17 @@ class SqlAlchemyEntryRepository:
             select(Vehicle)
             .where(Vehicle.license_plate == plate)
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
         return self.session.scalar(statement)
+
+    def is_client_active(self, vehicle_id: int) -> bool:
+        # Read after acquiring the vehicle lock; do not reuse cached client state.
+        status = self.session.scalar(
+            select(Client.status).join(Vehicle, Vehicle.client_id == Client.id)
+            .where(Vehicle.id == vehicle_id)
+        )
+        return status == ClientStatus.ACTIVE.value
 
     def operator_exists(self, operator_id: int) -> bool:
         statement = select(Operator.id).where(Operator.id == operator_id).limit(1)
@@ -162,6 +174,9 @@ class EntryService:
                         "VEHICLE_NOT_FOUND",
                         "El vehículo no está registrado.",
                     )
+
+                if not self.repository.is_client_active(vehicle.id):
+                    raise EntryError(409, 'CLIENT_INACTIVE', 'El cliente está inactivo.')
 
                 if not self.repository.operator_exists(operator_id):
                     raise EntryError(

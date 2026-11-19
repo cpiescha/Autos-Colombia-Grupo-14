@@ -53,6 +53,9 @@ class FakeEntryRepository:
         self.queried_plates.append(plate)
         return self.vehicles.get(plate)
 
+    def is_client_active(self, vehicle_id: int) -> bool:
+        return True
+
     def operator_exists(self, operator_id: int) -> bool:
         return operator_id in self.operator_ids
 
