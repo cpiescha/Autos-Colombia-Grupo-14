@@ -305,6 +305,100 @@ def test_existing_admin_annulment_route_still_works(payment_api):
     assert response.json()["motivo_anulacion"] == "Error de registro"
 
 
+def _annul_snapshot(factory):
+    with factory() as db:
+        return [db.execute(select(model.__table__)).all()
+                for model in (Payment, Membership, PaymentAudit)]
+
+
+@pytest.mark.parametrize(
+    "case,status,code,message",
+    [
+        ("operator", 403, "FORBIDDEN", "No tiene permisos para realizar esta acción."),
+        ("anonymous", 401, "INVALID_SESSION", "La sesión no es válida o venció."),
+        ("missing", 404, "PAYMENT_NOT_FOUND", "El pago no existe."),
+        ("invalid", 422, "INVALID_PAYMENT_DATA", "Los datos del pago no son válidos."),
+        ("nonlatest", 409, "PAYMENT_NOT_LATEST", "Solo se puede anular el último pago aplicado."),
+        ("annulled", 409, "PAYMENT_ALREADY_ANNULLED", "El pago ya está anulado."),
+    ],
+)
+def test_annulment_rejections_preserve_snapshot(payment_api, case, status, code, message):
+    client = payment_api["client"]
+    token = payment_api["admin_token"]
+    first = _create_payment(client, token, "annul-first", "2026-12-05T10:00:00+00:00")
+    payment_id = first["id"]
+    if case == "nonlatest":
+        _create_payment(client, token, "annul-second", "2026-12-06T10:00:00+00:00")
+    if case == "annulled":
+        _assert_annul(payment_api, first, None)
+    before = _annul_snapshot(payment_api["factory"])
+    response = client.patch(
+        f"/api/pagos/{999 if case == 'missing' else payment_id}/anular",
+        json={} if case == "invalid" else {"motivo": "Error"},
+        headers={} if case == "anonymous" else _headers(
+            payment_api["operator_token"] if case == "operator" else token),
+    )
+    assert response.status_code == status
+    assert response.json() == {"code": code, "message": message, "details": None}
+    assert _annul_snapshot(payment_api["factory"]) == before
+
+
+def _assert_annul(api, created, predecessor):
+    before = _annul_snapshot(api["factory"])
+    response = api["client"].patch(
+        f"/api/pagos/{created['id']}/anular", json={"motivo": " Error "},
+        headers=_headers(api["admin_token"]),
+    )
+    assert response.status_code == 200, response.text
+    with api["factory"]() as db:
+        payment = db.get(Payment, created["id"])
+        membership = db.get(Membership, 70)
+        assert response.json() == {
+            "id": payment.id, "estado": "ANNULLED", "valor": "120000.00",
+            "medio": "EFECTIVO",
+            "fecha_corte_anterior": payment.previous_cutoff.isoformat(),
+            "anulado_en": payment.annulled_at.isoformat(), "motivo_anulacion": "Error",
+        }
+        assert payment.status == "ANNULLED"
+        assert payment.annulled_by == 71
+        assert membership.current_cutoff_date == payment.previous_cutoff
+        assert membership.expires_at == payment.previous_cutoff
+        assert membership.last_payment_id == predecessor
+        audits = db.scalars(select(PaymentAudit).where(
+            PaymentAudit.payment_id == payment.id, PaymentAudit.action == "ANNUL")).all()
+        assert len(audits) == 1
+        audit = audits[0]
+        assert audit.account_id == 71
+        assert audit.previous_state == {
+            "status": "REGISTERED",
+            "current_cutoff_date": before[1][0].current_cutoff_date.isoformat(),
+            "expires_at": before[1][0].expires_at.isoformat(),
+            "last_payment_id": payment.id,
+        }
+        assert audit.new_state == {
+            "status": "ANNULLED", "current_cutoff_date": payment.previous_cutoff.isoformat(),
+            "expires_at": payment.previous_cutoff.isoformat(),
+            "last_payment_id": predecessor, "reason": "Error",
+        }
+    after = _annul_snapshot(api["factory"])
+    assert len(after[0]) == len(before[0])
+    assert len(after[2]) == len(before[2]) + 1
+    assert [row for row in after[0] if row.id != created["id"]] == [
+        row for row in before[0] if row.id != created["id"]]
+    assert after[2][:-1] == before[2]
+
+
+def test_repeated_lifo_annulments_restore_predecessor_then_null(payment_api):
+    client = payment_api["client"]
+    token = payment_api["admin_token"]
+    first = _create_payment(client, token, "lifo-first", "2026-12-06T10:00:00+00:00")
+    second = _create_payment(client, token, "lifo-second", "2026-12-05T10:00:00+00:00")
+    _assert_annul(payment_api, second, first["id"])
+    third = _create_payment(client, token, "lifo-third", "2026-12-07T10:00:00+00:00")
+    _assert_annul(payment_api, third, first["id"])
+    _assert_annul(payment_api, first, None)
+
+
 READ_FIELDS = {
     "id",
     "vehiculo_id",
