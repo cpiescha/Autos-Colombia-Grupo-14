@@ -105,13 +105,17 @@ class PaymentAnnulmentService:
         return payment
 
     def _lock_payment(self, payment_id: int) -> Payment | None:
-        query = select(Payment).where(Payment.id == payment_id)
+        query = select(Payment).where(Payment.id == payment_id).execution_options(
+            populate_existing=True,
+        )
         if self.db.get_bind().dialect.name == "postgresql":
             query = query.with_for_update()
         return self.db.execute(query).scalar_one_or_none()
 
     def _lock_membership(self, membership_id: int) -> Membership:
-        query = select(Membership).where(Membership.id == membership_id)
+        query = select(Membership).where(Membership.id == membership_id).execution_options(
+            populate_existing=True,
+        )
         if self.db.get_bind().dialect.name == "postgresql":
             query = query.with_for_update()
         return self.db.execute(query).scalar_one()
