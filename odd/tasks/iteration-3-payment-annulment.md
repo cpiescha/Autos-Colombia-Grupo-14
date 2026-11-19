@@ -22,9 +22,9 @@ Scope: administrator-only LIFO payment annulment, cutoff rollback, audit integri
 
 ## Tasks
 
-- [x] **T1** (`S2-S4`, inline, commit pending): Add RED HTTP/service tests for authentication, role authorization, missing/already-annulled payments, and non-LIFO rejection with unchanged state.
-- [x] **T2** (`S4-S7`, inline, commit pending): Implement predecessor restoration, expired reactivation rollback, complete audit snapshots, and transactional rollback.
-- [x] **T3** (`S2-S8`, inline, commit pending): Prove successful and repeated LIFO annulment through the public API, including exact Spanish DTO/errors and no mutation on rejection.
+- [x] **T1** (`S2-S4`, inline, commit `7d363fd`): Add RED HTTP/service tests for authentication, role authorization, missing/already-annulled payments, and non-LIFO rejection with unchanged state.
+- [x] **T2** (`S4-S7`, inline, commit `7d363fd`): Implement predecessor restoration, expired reactivation rollback, complete audit snapshots, and transactional rollback.
+- [x] **T3** (`S2-S8`, inline, commit `7d363fd`): Prove successful and repeated LIFO annulment through the public API, including exact Spanish DTO/errors and no mutation on rejection.
 - [ ] **T4** (`S2-S8`, independent verification, commit pending): Run focused payment, membership, persistence, cycle, and entry regressions; record independent verdicts.
 
 Risk: item 1 — annulment changes persisted payment, membership eligibility, and audit state.
@@ -39,3 +39,4 @@ Risk: item 3 — T35 finalizes a public HTTP contract consumed by the frontend.
 - **L4:** T1–T3 implemented; coverage S2, S3, S4, S5, S6, S7, S8. Before production edits, focused RED observed 6 failed / 25 passed: non-LIFO accepted, predecessor lost, incomplete audit snapshots, missing rollback on audit/commit failures, and an over-broad future-start NULL-cutoff test. The latter was corrected to historical reactivation because `expires_at > starts_at` forbids expiring a future-start membership without changing its start. Existing historical NULL-cutoff behavior was preserved, without migration.
 - **L5:** GREEN: `cd backend && PYTHONDONTWRITEBYTECODE=1 .venv/Scripts/python.exe -m pytest -p no:cacheprovider tests/test_payment_persistence.py tests/test_payment_api.py` — 31 passed. HTTP tests assert exact Spanish JSON and persisted snapshots; repeated LIFO restoration also skips an already-annulled newer payment and ignores payment-date ordering. Audit/commit fault injection verifies rollback and successful session reuse. Both authorization layers remain unchanged.
 - **L6:** Proportional regression: `cd backend && PYTHONDONTWRITEBYTECODE=1 .venv/Scripts/python.exe -m pytest -p no:cacheprovider tests/test_payment_api.py tests/test_membership_api.py tests/test_payment_registration.py tests/test_payment_persistence.py tests/test_membership_cycle.py tests/test_entry.py` — 81 passed. Both commands report the existing Starlette/AnyIO deprecation warning. T4 independent verification remains pending; no commit or push. PostgreSQL concurrency was not exercised by these SQLite tests.
+- **L7:** T1–T3 were committed locally as `7d363fd`. The required independent T4 verifier failed before running any probe because its model quota was unavailable. Per the bounded verification policy, it was not retried or replaced. T4 remains open and publication is blocked until the user explicitly authorizes one new bounded verification attempt after capacity is available, or stops this feature without delivery.
