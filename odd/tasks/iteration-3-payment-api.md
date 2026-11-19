@@ -61,3 +61,4 @@ Risk: item 3 — T34 adds public HTTP contracts consumed by the frontend.
 - **L14:** T3 RED observed: unauthenticated list returned `405`, authenticated list returned `405`, and detail routes returned generic `404` because GET routes did not exist.
 - **L15:** T3 GREEN passed `15 passed`; focused payment API/service/persistence/cycle regression passed `27 passed, 1 warning`.
 - **L16:** Independent verification passed S2, S3, S10-S13 for bounded T3 at `ebdb34c`; exact regression command passed `27 passed, 1 warning`, with no blockers.
+- **L17:** Native review was due for the committed candidate but START failed in provider phase `candidate-view` on Git `worktree`; `lineage_created=false`, no mutation occurred, and automatic retry was forbidden.
