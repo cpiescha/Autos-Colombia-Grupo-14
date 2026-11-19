@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models import (
     Client,
+    ClientStatusAudit,
     Membership,
     Operator,
     Payment,
@@ -185,6 +186,50 @@ def test_same_idempotency_key_replays_original_without_second_mutation(payment_a
     assert payments == 1
     assert audits == 1
     assert cutoff.replace(tzinfo=timezone.utc) == payment_api["cutoff"] + timedelta(days=30)
+
+
+@pytest.mark.parametrize(
+    ("owner", "other"),
+    [("admin_token", "operator_token"), ("operator_token", "admin_token")],
+)
+def test_cross_account_idempotency_replay_is_conflict_without_mutation(
+    payment_api, owner, other,
+):
+    client = payment_api["client"]
+    factory = payment_api["factory"]
+    body = _body("payment-cross-account")
+    first = client.post(
+        "/api/pagos", json=body, headers=_headers(payment_api[owner]),
+    )
+    assert first.status_code == 201
+
+    def snapshot():
+        with factory() as db:
+            return {
+                model.__tablename__: db.execute(select(model.__table__)).all()
+                for model in (Payment, PaymentAudit, ClientStatusAudit, Membership, Client)
+            }
+
+    before = snapshot()
+    counts_before = _counts(factory)
+    response = client.post(
+        "/api/pagos", json=body, headers=_headers(payment_api[other]),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "IDEMPOTENCY_CONFLICT",
+        "message": "La clave de idempotencia no está disponible.",
+        "details": None,
+    }
+    assert snapshot() == before
+    assert _counts(factory) == counts_before
+    replay = client.post(
+        "/api/pagos", json=body, headers=_headers(payment_api[owner]),
+    )
+    assert replay.status_code == 201
+    assert replay.json() == first.json()
+    assert snapshot() == before
 
 
 def test_unauthenticated_registration_leaves_payment_state_unchanged(payment_api):

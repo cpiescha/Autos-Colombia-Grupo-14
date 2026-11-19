@@ -52,7 +52,7 @@ class PaymentRegistrationService:
 
         existing = self._payment_by_key(clean_key)
         if existing is not None:
-            return existing
+            return self._authorized_replay(existing, account)
 
         try:
             vehicle = self._lock_vehicle(vehicle_id)
@@ -135,11 +135,21 @@ class PaymentRegistrationService:
             self.db.rollback()
             replay = self._payment_by_key(clean_key)
             if replay is not None:
-                return replay
+                return self._authorized_replay(replay, account)
             raise
         except Exception:
             self.db.rollback()
             raise
+
+    @staticmethod
+    def _authorized_replay(payment: Payment, account: UserAccount) -> Payment:
+        if payment.recorded_by != account.id:
+            raise PaymentRegistrationError(
+                409,
+                "IDEMPOTENCY_CONFLICT",
+                "La clave de idempotencia no está disponible.",
+            )
+        return payment
 
     def _payment_by_key(self, key: str) -> Payment | None:
         return self.db.scalar(select(Payment).where(Payment.idempotency_key == key))

@@ -17,7 +17,10 @@ from app.models import (
     Vehicle,
 )
 from app.models.enums import AccountRole, ClientStatus, VehicleType
-from app.services.payment_registration import PaymentRegistrationService
+from app.services.payment_registration import (
+    PaymentRegistrationError,
+    PaymentRegistrationService,
+)
 
 
 @pytest.fixture
@@ -197,6 +200,60 @@ def test_same_idempotency_key_returns_original_without_advancing_again(session):
     assert _utc(membership.current_cutoff_date) == cutoff + timedelta(days=30)
     assert session.scalar(select(func.count()).select_from(Payment)) == 1
     assert session.scalar(select(func.count()).select_from(PaymentAudit)) == 1
+
+
+@pytest.mark.parametrize("same_account", [True, False])
+def test_integrity_error_replay_checks_owner(session, monkeypatch, same_account):
+    account = _account(session)
+    _, vehicle, membership, _ = _vehicle_with_membership(
+        session, cutoff=datetime(2026, 12, 20, tzinfo=timezone.utc),
+    )
+    other_operator = Operator(name="Otro operador pagos")
+    session.add(other_operator)
+    session.flush()
+    other = UserAccount(
+        operator_id=other_operator.id,
+        username="other-payment-account",
+        password_hash="unused",
+        role=AccountRole.OPERADOR,
+    )
+    session.add(other)
+    session.commit()
+    service = PaymentRegistrationService(session)
+    request = dict(
+        vehicle_id=vehicle.id,
+        amount=Decimal("120000.00"),
+        payment_method="QR",
+        idempotency_key="payment-race",
+        account=account,
+        paid_at=datetime(2026, 12, 10, tzinfo=timezone.utc),
+    )
+    first = service.register(**request)
+    cutoff = membership.current_cutoff_date
+    lookup = service._payment_by_key
+    calls = []
+
+    def miss_initial_lookup(key):
+        calls.append(key)
+        return None if len(calls) == 1 else lookup(key)
+
+    monkeypatch.setattr(service, "_payment_by_key", miss_initial_lookup)
+    request["account"] = account if same_account else other
+    if same_account:
+        assert service.register(**request).id == first.id
+    else:
+        with pytest.raises(PaymentRegistrationError) as error:
+            service.register(**request)
+        assert error.value.status_code == 409
+        assert error.value.code == "IDEMPOTENCY_CONFLICT"
+        assert error.value.message == "La clave de idempotencia no está disponible."
+    assert len(calls) == 2
+    session.refresh(membership)
+    assert membership.current_cutoff_date == cutoff
+    assert membership.last_payment_id == first.id
+    assert session.scalar(select(func.count()).select_from(Payment)) == 1
+    assert session.scalar(select(func.count()).select_from(PaymentAudit)) == 1
+    assert session.scalar(select(func.count()).select_from(ClientStatusAudit)) == 0
 
 
 def test_registration_failure_rolls_back_payment_cutoff_and_reactivation(session):
