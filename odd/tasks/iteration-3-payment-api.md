@@ -13,6 +13,7 @@ Scope: payment registration and read-only payment/membership queries; annulment 
 7. **S7 — Membership selection decision:** “Usar la más reciente (recomendado)”.
 8. **S8 — Idempotency decision:** “Devolver el pago original (recomendado)”.
 9. **S9 — Activation decision:** “Solo primer pago o reactivación (recomendado)”.
+10. **S10 — HTTP contract decision:** “Contrato completo en español (recomendado)”.
 
 ## Allowed edit surfaces
 
@@ -30,9 +31,9 @@ Scope: payment registration and read-only payment/membership queries; annulment 
 
 ## Tasks
 
-- [x] **T1** (`S2-S5`, `S7-S9`, inline, commit pending): Add RED service tests and implement atomic payment registration using `MembershipCycleService`.
-- [~] **T2** (`S2-S3`, inline, commit pending): Add `POST /api/pagos` with authenticated operator/admin identity and idempotency handling.
-- [ ] **T3** (`S2-S3`, inline, commit pending): Add payment list/detail queries and DTOs.
+- [x] **T1** (`S2-S5`, `S7-S9`, inline, commit `98dc996`): Add RED service tests and implement atomic payment registration using `MembershipCycleService`.
+- [x] **T2** (`S2-S5`, `S8`, `S10`, inline, commit pending): Add `POST /api/pagos` with authenticated operator/admin identity and idempotency handling.
+- [~] **T3** (`S2-S3`, inline, commit pending): Add payment list/detail queries and DTOs.
 - [ ] **T4** (`S2`, `S6`, inline, commit pending): Add vehicle/client/expiring membership queries.
 - [ ] **T5** (`S3-S6`, independent verification, commit pending): Run focused API, entry, persistence, and authorization regressions; record evidence.
 
@@ -46,3 +47,7 @@ Risk: item 3 — T34 adds public HTTP contracts consumed by the frontend.
 - **L3:** User selected the most recent membership, permanent same-key replay returning the original payment, and `activated_at` updates only for first payment or reactivation.
 - **L4:** T1 RED observed because `app.services.payment_registration` did not exist.
 - **L5:** T1 GREEN passed `4 passed`; focused registration, cycle, and persistence regression passed `12 passed`.
+- **L6:** T1 was committed as `98dc996`. The 485-line work unit exceeds the preferred ~400-line review slice because atomic service behavior and its rollback/idempotency tests were kept together; T2 starts a new review slice.
+- **L7:** User selected a complete Spanish POST contract: `vehiculo_id`, `valor`, `medio`, `clave_idempotencia`, optional `fecha_pago`; response includes coverage, cutoff, and authenticated responsible account.
+- **L8:** T2 RED observed: all 9 HTTP cases returned route-level `404` before the POST route existed.
+- **L9:** T2 GREEN passed `9 passed`; payment API/service/persistence/cycle regression plus existing annulment route passed `22 passed, 1 warning`.

@@ -1,0 +1,260 @@
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+
+from app.db.session import get_db
+from app.main import app
+from app.models import (
+    Client,
+    Membership,
+    Operator,
+    Payment,
+    PaymentAudit,
+    UserAccount,
+    Vehicle,
+)
+from app.models.enums import AccountRole, VehicleType
+from app.services.auth import create_access_token
+from test_correction import session_factory
+
+
+@pytest.fixture
+def payment_api(session_factory, monkeypatch):
+    monkeypatch.setenv("AUTH_SECRET", "payment-api-test-secret-not-production-123456")
+    cutoff = datetime(2026, 12, 20, tzinfo=timezone.utc)
+    with session_factory.begin() as db:
+        db.add(Client(id=70, name="Cliente API pagos"))
+        db.add(Vehicle(
+            id=70,
+            license_plate="API070",
+            type=VehicleType.CARRO,
+            brand="Renault",
+            model="Logan",
+            color="Azul",
+            client_id=70,
+        ))
+        db.add(Membership(
+            id=70,
+            vehicle_id=70,
+            starts_at=cutoff - timedelta(days=30),
+            expires_at=cutoff,
+            current_cutoff_date=cutoff,
+            activated_at=cutoff - timedelta(days=30),
+        ))
+        db.add_all([
+            Operator(id=70, name="Operador API pagos"),
+            Operator(id=71, name="Administrador API pagos"),
+        ])
+        db.add_all([
+            UserAccount(
+                id=70,
+                operator_id=70,
+                username="payment-operator",
+                password_hash="unused",
+                role=AccountRole.OPERADOR,
+            ),
+            UserAccount(
+                id=71,
+                operator_id=71,
+                username="payment-admin",
+                password_hash="unused",
+                role=AccountRole.ADMINISTRADOR,
+            ),
+        ])
+
+    def database():
+        with session_factory() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = database
+    try:
+        with TestClient(app) as client:
+            yield {
+                "client": client,
+                "factory": session_factory,
+                "cutoff": cutoff,
+                "operator_token": create_access_token(70),
+                "admin_token": create_access_token(71),
+            }
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _body(key="payment-api-001"):
+    return {
+        "vehiculo_id": 70,
+        "valor": "120000.00",
+        "medio": "EFECTIVO",
+        "clave_idempotencia": key,
+        "fecha_pago": "2026-12-05T14:30:00+00:00",
+    }
+
+
+def _headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _counts(factory):
+    with factory() as db:
+        return (
+            db.scalar(select(func.count()).select_from(Payment)),
+            db.scalar(select(func.count()).select_from(PaymentAudit)),
+            db.get(Membership, 70).current_cutoff_date,
+        )
+
+
+@pytest.mark.parametrize(
+    ("token_key", "account_id"),
+    [("operator_token", 70), ("admin_token", 71)],
+)
+def test_operator_and_admin_register_with_authenticated_identity(
+    payment_api,
+    token_key,
+    account_id,
+):
+    client = payment_api["client"]
+    factory = payment_api["factory"]
+    body = _body(f"payment-role-{account_id}")
+
+    forged = client.post(
+        "/api/pagos",
+        json={**body, "responsable_id": 999},
+        headers=_headers(payment_api[token_key]),
+    )
+    assert forged.status_code == 422
+    assert forged.json() == {
+        "code": "INVALID_PAYMENT_DATA",
+        "message": "Los datos del pago no son válidos.",
+        "details": None,
+    }
+    assert _counts(factory)[:2] == (0, 0)
+
+    response = client.post(
+        "/api/pagos",
+        json=body,
+        headers=_headers(payment_api[token_key]),
+    )
+
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert set(payload) == {
+        "id",
+        "vehiculo_id",
+        "cliente_id",
+        "mensualidad_id",
+        "estado",
+        "valor",
+        "medio",
+        "fecha_pago",
+        "cobertura_desde",
+        "fecha_corte",
+        "fecha_corte_anterior",
+        "responsable_id",
+    }
+    assert payload["vehiculo_id"] == 70
+    assert payload["cliente_id"] == 70
+    assert payload["mensualidad_id"] == 70
+    assert payload["estado"] == "REGISTERED"
+    assert Decimal(str(payload["valor"])) == Decimal("120000.00")
+    assert payload["medio"] == "EFECTIVO"
+    assert payload["responsable_id"] == account_id
+    with factory() as db:
+        payment = db.get(Payment, payload["id"])
+        assert payment.recorded_by == account_id
+        assert db.scalar(select(func.count()).select_from(PaymentAudit)) == 1
+        membership = db.get(Membership, 70)
+        assert membership.last_payment_id == payment.id
+
+
+def test_same_idempotency_key_replays_original_without_second_mutation(payment_api):
+    client = payment_api["client"]
+    factory = payment_api["factory"]
+    headers = _headers(payment_api["operator_token"])
+    body = _body("payment-api-replay")
+
+    first = client.post("/api/pagos", json=body, headers=headers)
+    replay = client.post("/api/pagos", json=body, headers=headers)
+
+    assert first.status_code == 201
+    assert replay.status_code == 201
+    assert replay.json() == first.json()
+    payments, audits, cutoff = _counts(factory)
+    assert payments == 1
+    assert audits == 1
+    assert cutoff.replace(tzinfo=timezone.utc) == payment_api["cutoff"] + timedelta(days=30)
+
+
+def test_unauthenticated_registration_leaves_payment_state_unchanged(payment_api):
+    before = _counts(payment_api["factory"])
+
+    response = payment_api["client"].post("/api/pagos", json=_body())
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "INVALID_SESSION"
+    assert response.headers["www-authenticate"] == "Bearer"
+    assert _counts(payment_api["factory"]) == before
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"valor": "0"},
+        {"medio": "CHEQUE"},
+        {"clave_idempotencia": ""},
+        {"fecha_pago": "2026-12-05T14:30:00"},
+    ],
+)
+def test_invalid_payment_data_returns_422_without_mutation(payment_api, change):
+    before = _counts(payment_api["factory"])
+
+    response = payment_api["client"].post(
+        "/api/pagos",
+        json={**_body(), **change},
+        headers=_headers(payment_api["operator_token"]),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "INVALID_PAYMENT_DATA"
+    assert _counts(payment_api["factory"]) == before
+
+
+def test_missing_vehicle_returns_404_without_partial_write(payment_api):
+    body = {**_body(), "vehiculo_id": 999}
+
+    response = payment_api["client"].post(
+        "/api/pagos",
+        json=body,
+        headers=_headers(payment_api["operator_token"]),
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "code": "VEHICLE_NOT_FOUND",
+        "message": "El vehículo no existe.",
+        "details": None,
+    }
+    assert _counts(payment_api["factory"])[:2] == (0, 0)
+
+
+def test_existing_admin_annulment_route_still_works(payment_api):
+    client = payment_api["client"]
+    created = client.post(
+        "/api/pagos",
+        json=_body("payment-api-annul"),
+        headers=_headers(payment_api["operator_token"]),
+    )
+    payment_id = created.json()["id"]
+
+    response = client.patch(
+        f"/api/pagos/{payment_id}/anular",
+        json={"motivo": "Error de registro"},
+        headers=_headers(payment_api["admin_token"]),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["id"] == payment_id
+    assert response.json()["estado"] == "ANNULLED"
+    assert response.json()["motivo_anulacion"] == "Error de registro"
