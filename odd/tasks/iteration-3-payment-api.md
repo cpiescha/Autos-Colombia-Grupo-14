@@ -32,8 +32,8 @@ Scope: payment registration and read-only payment/membership queries; annulment 
 ## Tasks
 
 - [x] **T1** (`S2-S5`, `S7-S9`, inline, commit `98dc996`): Add RED service tests and implement atomic payment registration using `MembershipCycleService`.
-- [x] **T2** (`S2-S5`, `S8`, `S10`, inline, commit pending): Add `POST /api/pagos` with authenticated operator/admin identity and idempotency handling.
-- [~] **T3** (`S2-S3`, inline, commit pending): Add payment list/detail queries and DTOs.
+- [x] **T2** (`S2-S5`, `S8`, `S10`, inline, commit `fc92766`): Add `POST /api/pagos` with authenticated operator/admin identity and idempotency handling.
+- [ ] **T3** (`S2-S3`, inline, commit pending): Add payment list/detail queries and DTOs.
 - [ ] **T4** (`S2`, `S6`, inline, commit pending): Add vehicle/client/expiring membership queries.
 - [ ] **T5** (`S3-S6`, independent verification, commit pending): Run focused API, entry, persistence, and authorization regressions; record evidence.
 
@@ -51,3 +51,5 @@ Risk: item 3 — T34 adds public HTTP contracts consumed by the frontend.
 - **L7:** User selected a complete Spanish POST contract: `vehiculo_id`, `valor`, `medio`, `clave_idempotencia`, optional `fecha_pago`; response includes coverage, cutoff, and authenticated responsible account.
 - **L8:** T2 RED observed: all 9 HTTP cases returned route-level `404` before the POST route existed.
 - **L9:** T2 GREEN passed `9 passed`; payment API/service/persistence/cycle regression plus existing annulment route passed `22 passed, 1 warning`.
+- **L10:** T2 was committed as `fc92766` (354 changed lines). T3 starts a new review slice.
+- **L11:** User stop: “para y sube los cambios a camilo backend”. T3 exploration was cancelled before source changes; T3-T5 remain pending.
