@@ -19,12 +19,12 @@ import { VigenciaMembresia } from '../../models/payment.model';
       <div class="card" style="margin-bottom: 1.5rem;">
         <form (ngSubmit)="consultar()" class="form-grid">
           <div class="form-group">
-            <label>Documento del cliente</label>
+            <label>Nombre del cliente</label>
             <input
               type="text"
               [(ngModel)]="documento"
               name="documento"
-              placeholder="Ej. 1065123456"
+              placeholder="Si no tienes la placa"
             />
           </div>
           <div class="form-group">
@@ -105,7 +105,7 @@ export class VigenciaComponent {
           this.cargando = false;
         },
         error: (err) => {
-          this.error = err?.error?.detail || 'No se encontró información de vigencia.';
+          this.error = this.pagosService.mensaje(err);
           this.cargando = false;
         },
       });

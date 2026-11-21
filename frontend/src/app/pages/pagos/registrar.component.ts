@@ -19,18 +19,7 @@ import { PagoCreate, PagoItem } from '../../models/payment.model';
       <div class="card" style="margin-bottom: 1.5rem;">
         <form (ngSubmit)="registrar()" class="form-grid">
           <div class="form-group">
-            <label>Documento del cliente *</label>
-            <input
-              type="text"
-              [(ngModel)]="form.documento"
-              name="documento"
-              placeholder="Ej. 1065123456"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Placa del vehículo</label>
+            <label>Placa del vehículo *</label>
             <input
               type="text"
               [(ngModel)]="form.placa"
@@ -56,29 +45,8 @@ import { PagoCreate, PagoItem } from '../../models/payment.model';
             <select [(ngModel)]="form.metodo_pago" name="metodo_pago" required>
               <option value="EFECTIVO">Efectivo</option>
               <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="TARJETA">Tarjeta</option>
+              <option value="QR">QR</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label>Meses de vigencia</label>
-            <input
-              type="number"
-              [(ngModel)]="form.periodo_meses"
-              name="periodo_meses"
-              min="1"
-              max="12"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Observación</label>
-            <input
-              type="text"
-              [(ngModel)]="form.observacion"
-              name="observacion"
-              placeholder="Opcional"
-            />
           </div>
 
           <div class="form-actions" style="grid-column: 1 / -1;">
@@ -112,17 +80,14 @@ export class PagoRegistrarComponent {
   comprobante: PagoItem | null = null;
 
   form: PagoCreate = {
-    documento: '',
     placa: '',
     monto: 0,
     metodo_pago: 'EFECTIVO',
-    periodo_meses: 1,
-    observacion: '',
   };
 
   registrar(): void {
-    if (!this.form.documento?.trim() || !this.form.monto || this.form.monto <= 0) {
-      this.error = 'Ingresa el documento del cliente y un monto mayor a 0.';
+    if (!this.form.placa?.trim() || !this.form.monto || this.form.monto <= 0) {
+      this.error = 'Ingresa la placa y un monto mayor a 0.';
       return;
     }
 
@@ -132,8 +97,7 @@ export class PagoRegistrarComponent {
 
     const payload: PagoCreate = {
       ...this.form,
-      documento: this.form.documento.trim(),
-      placa: this.form.placa?.trim().toUpperCase() || undefined,
+      placa: this.form.placa?.trim().toUpperCase(),
     };
 
     this.pagosService.registrarPago(payload).subscribe({
@@ -142,7 +106,7 @@ export class PagoRegistrarComponent {
         this.cargando = false;
       },
       error: (err) => {
-        this.error = err?.error?.detail || 'No se pudo registrar el pago.';
+        this.error = this.pagosService.mensaje(err);
         this.cargando = false;
       },
     });

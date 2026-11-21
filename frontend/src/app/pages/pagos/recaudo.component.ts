@@ -112,7 +112,7 @@ export class RecaudoComponent implements OnInit {
         this.cargando = false;
       },
       error: (err) => {
-        this.error = err?.error?.detail || 'No se pudo consultar el reporte de recaudo.';
+        this.error = this.pagosService.mensaje(err);
         this.cargando = false;
       },
     });

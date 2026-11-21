@@ -54,7 +54,7 @@ import { PagoItem } from '../../models/payment.model';
             <input
               type="text"
               [(ngModel)]="filtroDocumento"
-              placeholder="Filtrar por documento..."
+              placeholder="Filtrar por cliente..."
               (keyup.enter)="cargarPagos()"
             />
             <button type="button" class="btn btn-secondary" (click)="cargarPagos()">Buscar</button>
@@ -125,7 +125,7 @@ export class PagoAnularComponent implements OnInit {
           this.cargando = false;
         },
         error: (err) => {
-          this.error = err?.error?.detail || 'No se pudieron cargar los pagos.';
+          this.error = this.pagosService.mensaje(err);
           this.cargando = false;
         },
       });
@@ -163,7 +163,7 @@ export class PagoAnularComponent implements OnInit {
           this.cargarPagos();
         },
         error: (err) => {
-          this.error = err?.error?.detail || 'No se pudo anular el pago.';
+          this.error = this.pagosService.mensaje(err);
           this.cargando = false;
         },
       });

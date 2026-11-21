@@ -19,8 +19,8 @@ import { PagoItem } from '../../models/payment.model';
       <div class="card" style="margin-bottom: 1.5rem;">
         <form (ngSubmit)="buscar()" class="form-grid">
           <div class="form-group">
-            <label>Documento</label>
-            <input type="text" [(ngModel)]="filtros.documento" name="documento" placeholder="Ej. 1065123456" />
+            <label>Cliente</label>
+            <input type="text" [(ngModel)]="filtros.documento" name="documento" placeholder="Nombre del cliente" />
           </div>
 
           <div class="form-group">
@@ -90,7 +90,7 @@ import { PagoItem } from '../../models/payment.model';
               <td>
                 <span
                   class="badge"
-                  [class.badge-success]="p.estado === 'PAGADO'"
+                  [class.badge-success]="p.estado === 'REGISTRADO'"
                   [class.badge-danger]="p.estado === 'ANULADO'"
                 >
                   {{ p.estado }}
@@ -136,7 +136,7 @@ export class PagoHistorialComponent implements OnInit {
         this.cargando = false;
       },
       error: (err) => {
-        this.error = err?.error?.detail || 'No se pudo cargar el historial de pagos.';
+        this.error = this.pagosService.mensaje(err);
         this.cargando = false;
       },
     });
