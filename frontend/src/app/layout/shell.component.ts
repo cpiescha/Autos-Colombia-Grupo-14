@@ -69,6 +69,12 @@ export class ShellComponent {
     { ruta: '/ocupacion', texto: 'Ocupación', icono: 'grid_view', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/presentes', texto: 'Vehículos presentes', icono: 'directions_car', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { ruta: '/reportes', texto: 'Reportes', icono: 'bar_chart', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { ruta: '/clientes', texto: 'Clientes', icono: 'groups', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { ruta: '/vigencia', texto: 'Vigencia', icono: 'event_available', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { ruta: '/pagos/registrar', texto: 'Registrar pago', icono: 'payments', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { ruta: '/pagos/historial', texto: 'Historial de pagos', icono: 'receipt_long', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { ruta: '/pagos/anular', texto: 'Anular pago', icono: 'cancel', roles: ['ADMINISTRADOR'] },
+    { ruta: '/pagos/recaudo', texto: 'Recaudo', icono: 'account_balance_wallet', roles: ['ADMINISTRADOR'] },
   ];
 
   menu = computed(() => this.items.filter((i) => i.roles.includes(this.auth.rol()!)));

@@ -19,7 +19,12 @@ import { ReportesComponent } from './pages/reportes/reportes.component';
 import { SalidaComponent } from './pages/salida/salida.component';
 import { VehiculoCrearComponent } from './pages/vehiculos/vehiculo-crear.component';
 import { VehiculoGestionarComponent } from './pages/vehiculos/vehiculo-gestionar.component';
-
+import { ClientesComponent } from './pages/pagos/clientes.component';
+import { VigenciaComponent } from './pages/pagos/vigencia.component';
+import { PagoRegistrarComponent } from './pages/pagos/registrar.component';
+import { PagoHistorialComponent } from './pages/pagos/historial.component';
+import { PagoAnularComponent } from './pages/pagos/anular.component';
+import { RecaudoComponent } from './pages/pagos/recaudo.component';
 const ADMIN = { roles: ['ADMINISTRADOR'] };
 const AMBOS = { roles: ['ADMINISTRADOR', 'OPERADOR'] };
 
@@ -37,6 +42,12 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
       { path: 'inicio', component: InicioComponent, title: 'Inicio' },
+      { path: 'clientes', component: ClientesComponent, title: 'Gestión de clientes', data: AMBOS, canActivate: [rolGuard] },
+      { path: 'vigencia', component: VigenciaComponent, title: 'Consulta de vigencia', data: AMBOS, canActivate: [rolGuard] },
+      { path: 'pagos/registrar', component: PagoRegistrarComponent, title: 'Registrar pago', data: AMBOS, canActivate: [rolGuard] },
+      { path: 'pagos/historial', component: PagoHistorialComponent, title: 'Historial de pagos', data: AMBOS, canActivate: [rolGuard] },
+      { path: 'pagos/anular', component: PagoAnularComponent, title: 'Anular pago', data: ADMIN, canActivate: [rolGuard] },
+      { path: 'pagos/recaudo', component: RecaudoComponent, title: 'Reporte de recaudo', data: ADMIN, canActivate: [rolGuard] },
       {
         path: 'vehiculos/nuevo',
         component: VehiculoCrearComponent,
