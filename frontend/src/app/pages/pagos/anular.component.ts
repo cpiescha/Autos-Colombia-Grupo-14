@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PagosService } from '../../services/pagos.service';
@@ -97,6 +97,7 @@ import { PagoItem } from '../../models/payment.model';
 })
 export class PagoAnularComponent implements OnInit {
   private readonly pagosService = inject(PagosService);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   pagos: PagoItem[] = [];
   pagoSeleccionado: PagoItem | null = null;
@@ -123,10 +124,12 @@ export class PagoAnularComponent implements OnInit {
         next: (data) => {
           this.pagos = data;
           this.cargando = false;
+          this.cambios.markForCheck();
         },
         error: (err) => {
           this.error = this.pagosService.mensaje(err);
           this.cargando = false;
+          this.cambios.markForCheck();
         },
       });
   }
@@ -160,11 +163,13 @@ export class PagoAnularComponent implements OnInit {
           this.mensaje = 'Pago anulado correctamente.';
           this.pagoSeleccionado = null;
           this.motivo = '';
+          this.cambios.markForCheck();
           this.cargarPagos();
         },
         error: (err) => {
           this.error = this.pagosService.mensaje(err);
           this.cargando = false;
+          this.cambios.markForCheck();
         },
       });
   }

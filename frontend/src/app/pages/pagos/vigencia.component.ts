@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PagosService } from '../../services/pagos.service';
@@ -77,6 +77,7 @@ import { VigenciaMembresia } from '../../models/payment.model';
 })
 export class VigenciaComponent {
   private readonly pagosService = inject(PagosService);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   documento = '';
   placa = '';
@@ -103,10 +104,12 @@ export class VigenciaComponent {
         next: (res) => {
           this.vigencia = res;
           this.cargando = false;
+          this.cambios.markForCheck();
         },
         error: (err) => {
           this.error = this.pagosService.mensaje(err);
           this.cargando = false;
+          this.cambios.markForCheck();
         },
       });
   }

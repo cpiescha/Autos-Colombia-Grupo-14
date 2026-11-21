@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PagosService } from '../../services/pagos.service';
@@ -73,6 +73,7 @@ import { Cliente } from '../../models/payment.model';
 })
 export class ClientesComponent implements OnInit {
   private readonly pagosService = inject(PagosService);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   clientes: Cliente[] = [];
   filtro = '';
@@ -93,10 +94,12 @@ export class ClientesComponent implements OnInit {
       next: (data) => {
         this.clientes = data;
         this.cargando = false;
+        this.cambios.markForCheck();
       },
       error: (err) => {
         this.error = this.pagosService.mensaje(err);
         this.cargando = false;
+        this.cambios.markForCheck();
       },
     });
   }
@@ -119,11 +122,13 @@ export class ClientesComponent implements OnInit {
         this.mensaje = 'Cliente inactivado.';
         this.clienteSeleccionado = null;
         this.motivo = '';
+        this.cambios.markForCheck();
         this.cargarClientes();
       },
       error: (err) => {
         this.error = this.pagosService.mensaje(err);
         this.cargando = false;
+        this.cambios.markForCheck();
       },
     });
   }

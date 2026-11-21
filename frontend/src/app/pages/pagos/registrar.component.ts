@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PagosService } from '../../services/pagos.service';
@@ -74,6 +74,7 @@ import { PagoCreate, PagoItem } from '../../models/payment.model';
 })
 export class PagoRegistrarComponent {
   private readonly pagosService = inject(PagosService);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   cargando = false;
   error = '';
@@ -104,10 +105,12 @@ export class PagoRegistrarComponent {
       next: (res) => {
         this.comprobante = res;
         this.cargando = false;
+        this.cambios.markForCheck();
       },
       error: (err) => {
         this.error = this.pagosService.mensaje(err);
         this.cargando = false;
+        this.cambios.markForCheck();
       },
     });
   }

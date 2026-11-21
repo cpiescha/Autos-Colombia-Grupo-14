@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PagosService } from '../../services/pagos.service';
@@ -86,6 +86,7 @@ import { RecaudoResumen } from '../../models/payment.model';
 })
 export class RecaudoComponent implements OnInit {
   private readonly pagosService = inject(PagosService);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   fechaInicio = new Date().toISOString().slice(0, 10);
   fechaFin = new Date().toISOString().slice(0, 10);
@@ -110,10 +111,12 @@ export class RecaudoComponent implements OnInit {
       next: (data) => {
         this.resumen = data;
         this.cargando = false;
+        this.cambios.markForCheck();
       },
       error: (err) => {
         this.error = this.pagosService.mensaje(err);
         this.cargando = false;
+        this.cambios.markForCheck();
       },
     });
   }

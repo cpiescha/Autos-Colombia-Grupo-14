@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PagosService } from '../../services/pagos.service';
@@ -109,6 +109,7 @@ import { PagoItem } from '../../models/payment.model';
 })
 export class PagoHistorialComponent implements OnInit {
   private readonly pagosService = inject(PagosService);
+  private readonly cambios = inject(ChangeDetectorRef);
 
   pagos: PagoItem[] = [];
   cargando = false;
@@ -134,10 +135,12 @@ export class PagoHistorialComponent implements OnInit {
       next: (data) => {
         this.pagos = data;
         this.cargando = false;
+        this.cambios.markForCheck();
       },
       error: (err) => {
         this.error = this.pagosService.mensaje(err);
         this.cargando = false;
+        this.cambios.markForCheck();
       },
     });
   }
